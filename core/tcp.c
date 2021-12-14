@@ -23,6 +23,7 @@
 
 #include "log.h"
 #include "config.h"
+#include "utils.h"
 
 #ifndef TCP_FASTOPEN_CONNECT
 #ifdef __linux__

@@ -8,41 +8,35 @@
 /**
  * Convert an URL to a conn_t structure.
  */
-int conn_set (Conn *conn, const char *set_url)
+int conn_set (Conn *conn, const char *setUrl)
 {
     char url[MAX_STRING];
     char *i, *j;
 
-    /* protocol:// */
-    if ((i = strstr(set_url, "://")) == NULL) {
+    if ((i = strstr(setUrl, "://")) == NULL) {
         conn->proto = PROTO_DEFAULT;
         conn->port = PROTO_DEFAULT_PORT;
-        gf_strlcpy(url, set_url, sizeof(url));
+        gf_strlcpy(url, setUrl, sizeof(url));
     } else {
-        int proto_len = i - set_url;
-        if (strncmp(set_url, "ftp", proto_len) == 0) {
+        int proto_len = i - setUrl;
+        if (strncmp(setUrl, "ftp", proto_len) == 0) {
             conn->proto = PROTO_FTP;
             conn->port = PROTO_FTP_PORT;
-        } else if (strncmp(set_url, "http", proto_len) == 0) {
+        } else if (strncmp(setUrl, "http", proto_len) == 0) {
             conn->proto = PROTO_HTTP;
             conn->port = PROTO_HTTP_PORT;
-        } else if (strncmp(set_url, "ftps", proto_len) == 0) {
+        } else if (strncmp(setUrl, "ftps", proto_len) == 0) {
             conn->proto = PROTO_FTPS;
             conn->port = PROTO_FTPS_PORT;
-        } else if (strncmp(set_url, "https", proto_len) == 0) {
+        } else if (strncmp(setUrl, "https", proto_len) == 0) {
             conn->proto = PROTO_HTTPS;
             conn->port = PROTO_HTTPS_PORT;
         } else {
-            loge("Unsupported protocol");
+            loge("Unsupported protocol, uri: %s", setUrl);
+
             return 0;
         }
-#ifndef HAVE_SSL
-        if (PROTO_IS_SECURE(conn->proto)) {
-            fprintf(stderr,
-                _("Secure protocol is not supported\n"));
-            return 0;
-        }
-#endif
+
         gf_strlcpy(url, i + 3, sizeof(url));
     }
 
@@ -52,8 +46,9 @@ int conn_set (Conn *conn, const char *set_url)
     } else {
         *i = 0;
         snprintf(conn->dir, MAX_STRING, "/%s", i + 1);
-        if (conn->proto == PROTO_HTTP || conn->proto == PROTO_HTTPS)
+        if (conn->proto == PROTO_HTTP || conn->proto == PROTO_HTTPS) {
             http_encode(conn->dir, sizeof(conn->dir));
+        }
     }
     j = strchr(conn->dir, '?');
     if (j != NULL) {
@@ -78,7 +73,6 @@ int conn_set (Conn *conn, const char *set_url)
     }
 
     /* Check for username in host field */
-    // FIXME: optimize
     if (strrchr(url, '@') != NULL) {
         gf_strlcpy(conn->user, url, sizeof(conn->user));
         i = strrchr(conn->user, '@');
@@ -149,16 +143,16 @@ char* conn_url (char *dst, size_t len, Conn *conn)
 {
     const char *prefix = "", *postfix = "";
 
-    const char *scheme = scheme_from_proto(conn->proto);
+    const char *scheme = scheme_from_proto (conn->proto);
 
-    size_t scheme_len = gf_strlcpy(dst, scheme, len);
-    if (scheme_len > len) {
+    size_t schemeLen = gf_strlcpy(dst, scheme, len);
+    if (schemeLen > len) {
         return NULL;
     }
 
-    len -= scheme_len;
+    len -= schemeLen;
 
-    char *p = dst + scheme_len;
+    char *p = dst + schemeLen;
 
     if (*conn->user != 0 && strcmp(conn->user, "anonymous") != 0) {
         int plen = snprintf(p, len, "%s:%s@", conn->user, conn->pass);
@@ -178,13 +172,15 @@ char* conn_url (char *dst, size_t len, Conn *conn)
     return plen < 0 ? NULL : dst;
 }
 
-/* Simple... */
+
 void conn_disconnect (Conn *conn)
 {
-    if (PROTO_IS_FTP(conn->proto) && !conn->proxy)
+    if (PROTO_IS_FTP(conn->proto) && !conn->proxy) {
         ftp_disconnect(conn->ftp);
-    else
+    } else {
         http_disconnect(conn->http);
+    }
+
     conn->tcp = NULL;
     conn->enabled = false;
 }
@@ -218,8 +214,7 @@ int conn_init (Conn *conn)
         conn->ftp->ftp_mode = FTP_PASSIVE;
         conn->ftp->tcp.ai_family = conn->conf->ai_family;
         if (!ftp_connect(conn->ftp, conn->proto, conn->host, conn->port,
-                conn->user, conn->pass,
-                conn->conf->io_timeout)) {
+                conn->user, conn->pass, conn->conf->io_timeout)) {
             conn->message = conn->ftp->message;
             conn_disconnect(conn);
 

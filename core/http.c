@@ -5,6 +5,7 @@
 #include "log.h"
 #include "conn.h"
 #include "config.h"
+#include "utils.h"
 
 
 #define HDR_CHUNK 512

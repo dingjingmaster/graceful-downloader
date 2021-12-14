@@ -4,6 +4,7 @@
 
 #include "log.h"
 #include "conn.h"
+#include "utils.h"
 #include "config.h"
 
 extern size_t gf_strlcpy (char *dst, const char *src, size_t dsize);

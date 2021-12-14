@@ -1,4 +1,4 @@
-#include "config.h"
+#include "abuf.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -6,7 +6,8 @@
 #include <stdlib.h>
 #include <stdarg.h>
 
-#include "abuf.h"
+#include "utils.h"
+#include "config.h"
 
 /**
  * Abstract buffer allocation/free.

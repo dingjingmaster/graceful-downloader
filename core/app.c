@@ -35,22 +35,22 @@ App *app_new (Conf *conf, int count, const Search *res)
     char *s;
     int i;
 
-    if (!count || !res) {
-        return NULL;
-    }
+    g_return_val_if_fail (count && res, NULL);
 
     App *app = calloc (1, sizeof(App));
     if (!app) {
+        logd ("calloc error!");
         goto nomem;
     }
 
     app->conf = conf;
     app->conn = calloc (app->conf->num_connections, sizeof(Conn));
     if (!app->conn) {
+        logd ("calloc error!");
         goto nomem;
     }
 
-    for (i = 0; i < app->conf->num_connections; i++) {
+    for (i = 0; i < app->conf->num_connections; ++i) {
         pthread_mutex_init(&app->conn[i].lock, NULL);
     }
 

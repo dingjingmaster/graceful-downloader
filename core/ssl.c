@@ -12,10 +12,10 @@ static pthread_mutex_t ssl_lock;
 static bool ssl_inited = false;
 static Conf *conf = NULL;
 
-void ssl_init(Conf *global_conf)
+void ssl_init(Conf *globalConf)
 {
     pthread_mutex_init(&ssl_lock, NULL);
-    conf = global_conf;
+    conf = globalConf;
 }
 
 static void ssl_startup(void)

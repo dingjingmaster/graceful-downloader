@@ -17,20 +17,20 @@
 
 #define min(a, b)               \
 ({                              \
-        __typeof__(a) __a = (a);	\
-        __typeof__(b) __b = (b);	\
-            __a < __b ? __a : __b;		\
+    __typeof__(a) __a = (a);	\
+    __typeof__(b) __b = (b);	\
+    __a < __b ? __a : __b;	\
 })
 
 #define max(a, b)               \
-    ({                              \
-            __typeof__(a) __a = (a);	\
-            __typeof__(b) __b = (b);	\
-                __a > __b ? __a : __b;		\
-    })
+({                              \
+    __typeof__(a) __a = (a);	\
+    __typeof__(b) __b = (b);	\
+    __a > __b ? __a : __b;	\
+})
 
 
-    typedef struct _Message         Message;
+typedef struct _Message         Message;
 typedef Message                 Url;
 typedef Message                 If;
 typedef struct _App             App;

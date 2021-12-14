@@ -50,7 +50,6 @@ struct _Conf
 
 int     conf_init       (Conf* conf);
 void    conf_free       (Conf* conf);
-int     conf_loadfile   (Conf* conf, const char* file);
 
 enum {
     HDR_USER_AGENT,

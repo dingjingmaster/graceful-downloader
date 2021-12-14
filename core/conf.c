@@ -10,6 +10,7 @@
 
 #include "log.h"
 #include "config.h"
+#include "utils.h"
 
 #define MATCH if (0);
 #define KEY(name) \
@@ -51,143 +52,6 @@ static int parse_protocol(Conf *conf, const char *value)
     return 1;
 }
 
-int conf_loadfile(Conf *conf, const char *file)
-{
-    int line = 0, ret = 1;
-    FILE *fp;
-    char s[MAX_STRING], key[MAX_STRING];
-
-    fp = fopen(file, "r");
-    if (fp == NULL) {
-        return 1; /* Not a real failure */
-    }
-
-    while (!feof(fp)) {
-        char *tmp, *value = NULL;
-        void *dst;
-
-        line++;
-
-        *s = 0;
-
-        if (!(ret = gf_fscanf(fp, "%100[^\n#]s", s))) {
-            break;
-        }
-
-        if (!(ret = gf_fscanf(fp, "%*[^\n]s"))) {
-            break;
-        }
-
-        if ((fgetc(fp) != '\n') && !feof(fp)) { /* Skip newline */
-            fprintf(stderr, "Expected newline\n");
-            goto error;
-        }
-
-        tmp = strchr(s, '=');
-        if (tmp == NULL) {
-            continue; /* Probably empty? */
-        }
-
-        sscanf(s, "%[^=  ]s", key);
-
-        /* Skip the "=" and any spaces following it */
-        while (isspace(*++tmp)); /* XXX isspace('\0') is false */
-        value = tmp;
-        /* Get to the end of the value string */
-        while (*tmp && !isspace(*tmp)) {
-            tmp++;
-        }
-        *tmp = '\0';
-
-        /* String options */
-        MATCH
-            KEY(default_filename)
-            KEY(http_proxy)
-            KEY(no_proxy)
-            else
-            goto num_keys;
-
-        /* Save string option */
-        gf_strlcpy(dst, value, MAX_STRING);
-        continue;
-
-        /* Numeric options */
-    num_keys:
-        MATCH
-            KEY(strip_cgi_parameters)
-            KEY(save_state_interval)
-            KEY(connection_timeout)
-            KEY(reconnect_delay)
-            KEY(max_redirect)
-            KEY(buffer_size)
-            KEY(max_speed)
-            KEY(verbose)
-            KEY(alternate_output)
-            KEY(percentage)
-            KEY(insecure)
-            KEY(no_clobber)
-            KEY(search_timeout)
-            KEY(search_threads)
-            KEY(search_amount)
-            KEY(search_top)
-            else
-            goto long_num_keys;
-
-        /* Save numeric option */
-        *((int *)dst) = atoi(value);
-        continue;
-
-        /* Long numeric options */
-    long_num_keys:
-        MATCH
-            KEY(max_speed)
-            else
-            goto other_keys;
-
-        /* Save numeric option */
-        *((unsigned long long *)dst) = strtoull(value, NULL, 10);
-        continue;
-
-    other_keys:
-        /* Option defunct but shouldn't be an error */
-        if (strcmp(key, "speed_type") == 0) {
-            continue;
-        } else if (strcmp(key, "interfaces") == 0) {
-            if (parse_interfaces(conf, value)) {
-                continue;
-            }
-        } else if (strcmp(key, "use_protocol") == 0) {
-            if (parse_protocol(conf, value)) {
-                continue;
-            }
-        } else if (strcmp(key, "num_connections") == 0) {
-            int num = atoi(value);
-            if (num <= USHRT_MAX) {
-                conf->num_connections = num;
-                continue;
-            }
-
-            loge ("Requested too many connections, max is %i", USHRT_MAX);
-        } else if (!strcmp(key, "user_agent")) {
-            conf_hdr_make(conf->add_header[HDR_USER_AGENT], "User-Agent", DEFAULT_USER_AGENT);
-            continue;
-        }
-#if 0
- /* FIXME broken code */
- get_config_number(add_header_count);
- for (int i = 0; i < conf->add_header_count; i++)
- get_config_string(add_header[i]);
-#endif
-
-    error:
-        loge ("Error in %s line %i.", file, line);
-        ret = 0;
-        break;
-    }
-
-    fclose(fp);
-    return ret;
-}
 
 int conf_init(Conf *conf)
 {
@@ -223,8 +87,9 @@ int conf_init(Conf *conf)
     conf->add_header_count = HDR_count_init;
 
     conf->interfaces = calloc(1, sizeof(If));
-    if (!conf->interfaces)
+    if (!conf->interfaces) {
         return 0;
+    }
 
     conf->interfaces->next = conf->interfaces;
 
@@ -237,28 +102,9 @@ int conf_init(Conf *conf)
         gf_strlcpy(conf->http_proxy, s2, sizeof(conf->http_proxy));
     }
 
-    if (!conf_loadfile(conf, ETCDIR "/graceful-downloader-rc")) {
-        return 0;
-    }
-
-    if ((s2 = getenv("HOME")) != NULL) {
-        char s[MAX_STRING];
-        int ret;
-
-        ret = snprintf(s, sizeof(s), "%s/.graceful-downloader-rc", s2);
-        if (ret >= (int)sizeof(s)) {
-            loge ("HOME env variable too long");
-            return 0;
-        }
-
-        if (!conf_loadfile(conf, s)) {
-            return 0;
-        }
-    }
-
     /* Convert no_proxy to a 0-separated-and-00-terminated list.. */
     int i = 0;
-    for (; conf->no_proxy[i]; i++) {
+    for (; conf->no_proxy[i] && i < sizeof (conf->no_proxy); ++i) {
         if (conf->no_proxy[i] == ',') {
             conf->no_proxy[i] = 0;
         }
