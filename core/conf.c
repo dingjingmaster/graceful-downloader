@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <net/if.h>
+#include <gio/gio.h>
 
 #include "log.h"
 #include "config.h"
@@ -17,12 +18,6 @@ else if (!strcmp(key, #name)) \
 
 int parse_interfaces(Conf *conf, char *s);
 
-//#ifdef __GNUC__
-//__attribute__((format(scanf, 2, 3)))
-//#endif /* __GNUC__ */
-
-
-extern size_t   strlcpy     (char *dst, const char *src, size_t dsize);
 extern int      get_if_ip   (char *dst, size_t len, const char *iface);
 
 static int gf_fscanf(FILE *fp, const char *format, ...)
@@ -113,7 +108,7 @@ int conf_loadfile(Conf *conf, const char *file)
             goto num_keys;
 
         /* Save string option */
-        strlcpy(dst, value, MAX_STRING);
+        gf_strlcpy(dst, value, MAX_STRING);
         continue;
 
         /* Numeric options */
@@ -196,12 +191,12 @@ int conf_loadfile(Conf *conf, const char *file)
 
 int conf_init(Conf *conf)
 {
-    char *s2;
-    int i;
+    g_return_val_if_fail (conf, -1);
 
     /* Set defaults */
     memset(conf, 0, sizeof(Conf));
-    strlcpy(conf->default_filename, "default", sizeof(conf->default_filename));
+
+    gf_strlcpy(conf->default_filename, "default", sizeof(conf->default_filename));
     *conf->http_proxy = 0;
     *conf->no_proxy = 0;
     conf->strip_cgi_parameters = 1;
@@ -237,8 +232,10 @@ int conf_init(Conf *conf)
        Otherwise, keep it to original.*/
     conf->alternate_output = isatty(STDOUT_FILENO);
 
-    if ((s2 = getenv("http_proxy")) || (s2 = getenv("HTTP_PROXY")))
-        strlcpy(conf->http_proxy, s2, sizeof(conf->http_proxy));
+    char *s2 = NULL;
+    if ((s2 = getenv("http_proxy")) || (s2 = getenv("HTTP_PROXY"))) {
+        gf_strlcpy(conf->http_proxy, s2, sizeof(conf->http_proxy));
+    }
 
     if (!conf_loadfile(conf, ETCDIR "/graceful-downloader-rc")) {
         return 0;
@@ -260,7 +257,8 @@ int conf_init(Conf *conf)
     }
 
     /* Convert no_proxy to a 0-separated-and-00-terminated list.. */
-    for (i = 0; conf->no_proxy[i]; i++) {
+    int i = 0;
+    for (; conf->no_proxy[i]; i++) {
         if (conf->no_proxy[i] == ',') {
             conf->no_proxy[i] = 0;
         }
@@ -314,7 +312,7 @@ int parse_interfaces(Conf *conf, char *s)
         if (*s < '0' || *s > '9') {
             get_if_ip (iface->text, sizeof(iface->text), s);
         } else {
-            strlcpy (iface->text, s, sizeof(iface->text));
+            gf_strlcpy (iface->text, s, sizeof(iface->text));
         }
         s = s2 + 1;
         if (*s) {

@@ -3,9 +3,7 @@
 #include "config.h"
 
 #include "log.h"
-
-extern size_t strlcpy (char *dst, const char *src, size_t dsize);
-extern size_t strlcat (char *dst, const char *src, size_t dsize);
+#include "utils.h"
 
 /**
  * Convert an URL to a conn_t structure.
@@ -19,7 +17,7 @@ int conn_set (Conn *conn, const char *set_url)
     if ((i = strstr(set_url, "://")) == NULL) {
         conn->proto = PROTO_DEFAULT;
         conn->port = PROTO_DEFAULT_PORT;
-        strlcpy(url, set_url, sizeof(url));
+        gf_strlcpy(url, set_url, sizeof(url));
     } else {
         int proto_len = i - set_url;
         if (strncmp(set_url, "ftp", proto_len) == 0) {
@@ -45,7 +43,7 @@ int conn_set (Conn *conn, const char *set_url)
             return 0;
         }
 #endif
-        strlcpy(url, i + 3, sizeof(url));
+        gf_strlcpy(url, i + 3, sizeof(url));
     }
 
     /* Split */
@@ -72,20 +70,20 @@ int conn_set (Conn *conn, const char *set_url)
     }
 
     if (i == NULL) {
-        strlcpy(conn->file, conn->dir, sizeof(conn->file));
+        gf_strlcpy(conn->file, conn->dir, sizeof(conn->file));
         strcpy(conn->dir, "/");
     } else {
-        strlcpy(conn->file, i + 1, sizeof(conn->file));
-        strlcat(conn->dir, "/", sizeof(conn->dir));
+        gf_strlcpy(conn->file, i + 1, sizeof(conn->file));
+        gf_strlcat(conn->dir, "/", sizeof(conn->dir));
     }
 
     /* Check for username in host field */
     // FIXME: optimize
     if (strrchr(url, '@') != NULL) {
-        strlcpy(conn->user, url, sizeof(conn->user));
+        gf_strlcpy(conn->user, url, sizeof(conn->user));
         i = strrchr(conn->user, '@');
         *i = 0;
-        strlcpy(url, i + 1, sizeof(url));
+        gf_strlcpy(url, i + 1, sizeof(url));
         *conn->pass = 0;
     } else {
         /* If not: Fill in defaults */
@@ -102,19 +100,19 @@ int conn_set (Conn *conn, const char *set_url)
     /* Password? */
     if ((i = strchr(conn->user, ':')) != NULL) {
         *i = 0;
-        strlcpy(conn->pass, i + 1, sizeof(conn->pass));
+        gf_strlcpy(conn->pass, i + 1, sizeof(conn->pass));
     }
 
        // Look for IPv6 literal hostname
     if (*url == '[') {
-        strlcpy(conn->host, url + 1, sizeof(conn->host));
+        gf_strlcpy(conn->host, url + 1, sizeof(conn->host));
         if ((i = strrchr(conn->host, ']')) != NULL) {
             *i++ = 0;
         } else {
             return 0;
         }
     } else {
-        strlcpy(conn->host, url, sizeof(conn->host));
+        gf_strlcpy(conn->host, url, sizeof(conn->host));
         i = conn->host;
         while (*i && *i != ':') {
             i++;
@@ -153,7 +151,7 @@ char* conn_url (char *dst, size_t len, Conn *conn)
 
     const char *scheme = scheme_from_proto(conn->proto);
 
-    size_t scheme_len = strlcpy(dst, scheme, len);
+    size_t scheme_len = gf_strlcpy(dst, scheme, len);
     if (scheme_len > len) {
         return NULL;
     }
@@ -379,11 +377,11 @@ int conn_info(Conn* conn)
         sscanf(t, "%1000s", s);
         if (s[0] == '/') {
             abuf_printf(conn->http->headers, "%s%s:%i%s", scheme_from_proto(conn->proto), conn->host, conn->port, s);
-            strlcpy(s, conn->http->headers->p, sizeof(s));
+            gf_strlcpy(s, conn->http->headers->p, sizeof(s));
         } else if (strstr(s, "://") == NULL) {
             conn_url(conn->http->headers->p, conn->http->headers->len, conn);
-            strlcat(conn->http->headers->p, s, conn->http->headers->len);
-            strlcpy(s, conn->http->headers->p, sizeof(s));
+            gf_strlcat(conn->http->headers->p, s, conn->http->headers->len);
+            gf_strlcpy(s, conn->http->headers->p, sizeof(s));
         }
 
         if (!conn_set(conn, s)) {
@@ -446,10 +444,10 @@ int conn_info_status_get(char *msg, size_t size, Conn *conn)
         while (*p++ != ' ');
         size_t len = strcspn(p, "\r\n");
         if (len) {
-            strlcpy(msg, p, min(len + 1, size));
+            gf_strlcpy(msg, p, min(len + 1, size));
             return conn->http->status;
         }
     }
-    strlcpy(msg, "Unknown Error", size);
+    gf_strlcpy(msg, "Unknown Error", size);
     return -1;
 }

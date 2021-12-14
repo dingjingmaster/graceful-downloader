@@ -25,8 +25,6 @@ static void *setup_thread   (void *);
 static char*stfile_makename (const char* bname);
 static void reactivate_connection (App* app, int thread);
 
-extern size_t strlcpy       (char *dst, const char *src, size_t dsize);
-
 static char *buffer = NULL;
 
 App *app_new (Conf *conf, int count, const Search *res)
@@ -84,7 +82,7 @@ App *app_new (Conf *conf, int count, const Search *res)
     app->url = u;
 
     for (i = 0; i < count; i++) {
-        strlcpy(u[i].text, res[i].url, sizeof(u[i].text));
+        gf_strlcpy(u[i].text, res[i].url, sizeof(u[i].text));
         u[i].next = &u[i + 1];
     }
     u[count - 1].next = u;
@@ -99,7 +97,7 @@ App *app_new (Conf *conf, int count, const Search *res)
     app->conn[0].local_if = app->conf->interfaces->text;
     app->conf->interfaces = app->conf->interfaces->next;
 
-    strlcpy(app->filename, app->conn[0].file, sizeof(app->filename));
+    gf_strlcpy(app->filename, app->conn[0].file, sizeof(app->filename));
     http_decode(app->filename);
 
     if ((s = strchr(app->filename, '?')) != NULL && app->conf->strip_cgi_parameters) {
@@ -107,7 +105,7 @@ App *app_new (Conf *conf, int count, const Search *res)
     }
 
     if (*app->filename == 0) {
-        strlcpy(app->filename, app->conf->default_filename, sizeof(app->filename));
+        gf_strlcpy(app->filename, app->conf->default_filename, sizeof(app->filename));
     }
 
     if (app->conf->no_clobber && access (app->filename, F_OK) == 0) {
@@ -154,11 +152,11 @@ App *app_new (Conf *conf, int count, const Search *res)
 
     /* Wildcards in URL --> Get complete filename */
     if (app->filename[strcspn(app->filename, "*?")])
-        strlcpy(app->filename, app->conn[0].file,
+        gf_strlcpy(app->filename, app->conn[0].file,
             sizeof(app->filename));
 
     if (*app->conn[0].output_filename != 0) {
-        strlcpy(app->filename, app->conn[0].output_filename, sizeof(app->filename));
+        gf_strlcpy(app->filename, app->conn[0].output_filename, sizeof(app->filename));
     }
 
     return app;

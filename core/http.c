@@ -10,10 +10,6 @@
 #define HDR_CHUNK 512
 
 
-extern size_t strlcpy (char *dst, const char *src, size_t dsize);
-extern size_t strlcat (char *dst, const char *src, size_t dsize);
-
-
 inline static int is_default_port (int proto, int port)
 {
     return ((proto == PROTO_HTTP && port == PROTO_HTTP_PORT) || (proto == PROTO_HTTPS && port == PROTO_HTTPS_PORT));
@@ -66,7 +62,7 @@ int http_connect (Http *conn, int proto, char *proxy, char *host, int port, char
     const char *puser = NULL, *ppass = "";
     Conn tconn[1];
 
-    strlcpy(conn->host, host, sizeof(conn->host));
+    gf_strlcpy(conn->host, host, sizeof(conn->host));
     conn->port = port;
     conn->proto = proto;
 
@@ -158,7 +154,7 @@ void http_addheader(Http *conn, const char *format, ...)
 
     va_start(params, format);
     vsnprintf(s, sizeof(s) - 3, format, params);
-    strlcat(s, "\r\n", sizeof(s));
+    gf_strlcat(s, "\r\n", sizeof(s));
     va_end(params);
 
     if (abuf_strcat(conn->request, s) < 0) {
@@ -172,7 +168,7 @@ int http_exec(Http *conn)
 
     logd ("--- Sending request ---\n%s\n--- End of request ---\n", conn->request->p);
 
-    strlcat(conn->request->p, "\r\n", conn->request->len);
+    gf_strlcat(conn->request->p, "\r\n", conn->request->len);
 
     const size_t reqlen = strlen(conn->request->p);
     size_t nwrite = 0;
@@ -403,5 +399,5 @@ void http_encode (char *s, size_t len)
 
     t[j] = 0;
 
-    strlcpy(s, t, len);
+    gf_strlcpy(s, t, len);
 }

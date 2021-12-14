@@ -32,8 +32,6 @@
 #endif /* __linux__ */
 #endif
 
-extern size_t strlcpy (char *dst, const char *src, size_t dsize);
-
 /*
  * Check if the given hostname is ipv6 literal
  * Returns 1 if true and 0 if false
@@ -213,13 +211,13 @@ int get_if_ip (char *dst, size_t len, const char *iface)
 
     memset (&ifr, 0, sizeof (struct ifreq));
 
-    strlcpy (ifr.ifr_name, iface, sizeof(ifr.ifr_name));
+    gf_strlcpy (ifr.ifr_name, iface, sizeof(ifr.ifr_name));
     ifr.ifr_addr.sa_family = AF_INET;
 
     ret = !ioctl (fd, SIOCGIFADDR, &ifr);
     if (ret) {
         struct sockaddr_in *x = (struct sockaddr_in *) &ifr.ifr_addr;
-        strlcpy (dst, inet_ntoa (x->sin_addr), len);
+        gf_strlcpy (dst, inet_ntoa (x->sin_addr), len);
     }
 
     close (fd);

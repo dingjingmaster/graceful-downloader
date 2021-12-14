@@ -6,8 +6,7 @@
 #include "conn.h"
 #include "config.h"
 
-extern size_t strlcpy (char *dst, const char *src, size_t dsize);
-extern size_t strlcat (char *dst, const char *src, size_t dsize);
+extern size_t gf_strlcpy (char *dst, const char *src, size_t dsize);
 
 
 int ftp_connect (Ftp *conn, int proto, char *host, int port, char *user,
@@ -71,7 +70,7 @@ int ftp_cwd(Ftp *conn, char *cwd)
         return 0;
     }
 
-    strlcpy(conn->cwd, cwd, sizeof(conn->cwd));
+    gf_strlcpy(conn->cwd, cwd, sizeof(conn->cwd));
 
     return 1;
 }
@@ -160,11 +159,11 @@ off_t ftp_size(Ftp *conn, char *file, int maxredir, unsigned io_timeout)
     if ((s = strstr(reply, "\nl")) != NULL) {
         /* Get the real filename */
         sscanf(s, "%*s %*i %*s %*s %*i %*s %*i %*s %100s", fn);
-        // FIXME: replace by strlcpy
+        // FIXME: replace by gf_strlcpy
         strcpy(file, fn);
 
         /* Get size of the file linked to */
-        strlcpy(fn, strstr(s, "->") + 3, sizeof(fn));
+        gf_strlcpy(fn, strstr(s, "->") + 3, sizeof(fn));
         fn[sizeof(fn) - 1] = '\0';
         free(reply);
         if ((reply = strchr(fn, '\r')) != NULL)
@@ -186,7 +185,7 @@ off_t ftp_size(Ftp *conn, char *file, int maxredir, unsigned io_timeout)
                 return -2;
             }
         }
-        // FIXME: replace by strlcpy
+        // FIXME: replace by gf_strlcpy
         strcpy(file, fn);
 
         free(reply);
@@ -246,7 +245,7 @@ int ftp_command(Ftp *conn, const char *format, ...)
 
     va_start(params, format);
     vsnprintf(cmd, sizeof(cmd) - 3, format, params);
-    strlcat(cmd, "\r\n", sizeof(cmd));
+    gf_strlcat(cmd, "\r\n", sizeof(cmd));
     va_end(params);
 
 #ifndef NDEBUG

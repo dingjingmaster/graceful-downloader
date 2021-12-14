@@ -7,8 +7,6 @@
 static void *search_speedtest      (void *r);
 static int   search_sortlist_qsort (const void *a, const void *b);
 
-extern size_t strlcpy               (char *dst, const char *src, size_t dsize);
-
 int search_makelist (Search* results, char *orig_url)
 {
     int size = 8192;
@@ -23,7 +21,7 @@ int search_makelist (Search* results, char *orig_url)
     if (!conn_set(conn, orig_url) || !conn_init(conn) || !conn_info(conn))
         return -1;
 
-    size_t orig_len = strlcpy(results[0].url, orig_url,
+    size_t orig_len = gf_strlcpy(results[0].url, orig_url,
         sizeof(results[0].url));
     results[0].speed = 1 + 1000 * (gf_gettime() - t);
     results[0].size = conn->size;
@@ -106,7 +104,7 @@ int search_makelist (Search* results, char *orig_url)
         if (!strncmp(url, orig_url, orig_len))
             continue;
 
-        strlcpy(results[nresults].url, url, sizeof(results[0].url));
+        gf_strlcpy(results[nresults].url, url, sizeof(results[0].url));
         results[nresults].size = results[0].size;
         results[nresults].conf = results->conf;
         ++nresults;

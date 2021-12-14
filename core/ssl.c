@@ -6,7 +6,6 @@
 
 #include "conf.h"
 #include "config.h"
-#include "compat-bsd.h"
 #include "compat-ssl.h"
 
 static pthread_mutex_t ssl_lock;

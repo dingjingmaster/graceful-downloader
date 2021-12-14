@@ -8,8 +8,6 @@
 
 #include "abuf.h"
 
-extern size_t strlcat (char *dst, const char *src, size_t dsize);
-
 /**
  * Abstract buffer allocation/free.
  * @returns 0 if OK, a negative value on error.
@@ -55,7 +53,7 @@ int abuf_printf(Abuf *abuf, const char *fmt, ...)
  */
 int abuf_strcat(Abuf* abuf, const char *src)
 {
-    size_t nread = strlcat(abuf->p, src, abuf->len);
+    size_t nread = gf_strlcat(abuf->p, src, abuf->len);
     if (nread > abuf->len) {
         size_t done = abuf->len - 1;
         int ret = abuf_setup(abuf, nread);
