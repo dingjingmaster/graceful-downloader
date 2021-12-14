@@ -48,9 +48,9 @@ struct _Conf
     char add_header[MAX_ADD_HEADERS] [MAX_STRING];
 };
 
-    int conf_loadfile(Conf* conf, const char* file);
-int conf_init(Conf* conf);
-void conf_free(Conf* conf);
+int     conf_init       (Conf* conf);
+void    conf_free       (Conf* conf);
+int     conf_loadfile   (Conf* conf, const char* file);
 
 enum {
     HDR_USER_AGENT,
