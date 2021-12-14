@@ -5,6 +5,8 @@
 
 #include "config.h"
 
+extern int dn_match(const char *hostname, const char *pat, size_t pat_len);
+
 inline static int match(const char *hostname, ASN1_STRING *certname)
 {
     return dn_match (hostname, (const char *)ASN1_STRING_get0_data(certname), ASN1_STRING_length(certname));

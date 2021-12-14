@@ -7,6 +7,8 @@
 static void *search_speedtest      (void *r);
 static int   search_sortlist_qsort (const void *a, const void *b);
 
+extern size_t strlcpy               (char *dst, const char *src, size_t dsize);
+
 int search_makelist (Search* results, char *orig_url)
 {
     int size = 8192;

@@ -9,6 +9,11 @@
 
 #define HDR_CHUNK 512
 
+
+extern size_t strlcpy (char *dst, const char *src, size_t dsize);
+extern size_t strlcat (char *dst, const char *src, size_t dsize);
+
+
 inline static int is_default_port (int proto, int port)
 {
     return ((proto == PROTO_HTTP && port == PROTO_HTTP_PORT) || (proto == PROTO_HTTPS && port == PROTO_HTTPS_PORT));

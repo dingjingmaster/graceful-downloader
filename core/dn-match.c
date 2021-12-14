@@ -1,5 +1,5 @@
 #include "config.h"
-#include <strings.h>
+#include <string.h>
 
 #include "global.h"
 

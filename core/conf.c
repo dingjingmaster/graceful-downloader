@@ -1,6 +1,5 @@
 #include "conf.h"
 
-#include <stdio.h>
 #include <error.h>
 #include <errno.h>
 #include <stdarg.h>
@@ -18,9 +17,13 @@ else if (!strcmp(key, #name)) \
 
 int parse_interfaces(Conf *conf, char *s);
 
-#ifdef __GNUC__
-__attribute__((format(scanf, 2, 3)))
-#endif /* __GNUC__ */
+//#ifdef __GNUC__
+//__attribute__((format(scanf, 2, 3)))
+//#endif /* __GNUC__ */
+
+
+extern size_t   strlcpy     (char *dst, const char *src, size_t dsize);
+extern int      get_if_ip   (char *dst, size_t len, const char *iface);
 
 static int gf_fscanf(FILE *fp, const char *format, ...)
 {

@@ -17,19 +17,19 @@ extern "C" {
 #include "search.h"
 
 
-App* app_new (Conf* conf, int count, const Search* urls);
-int  app_open (App* app);
-void app_start (App* app);
-void app_do(App* app);
-void app_close(App* app);
+App*   app_new          (Conf* conf, int count, const Search* urls);
+int    app_open         (App* app);
+void   app_start        (App* app);
+void   app_do           (App* app);
+void   app_close        (App* app);
 
-void print_messages(App* app);
+double app_gettime      (void);
+void   print_messages   (App* app);
+char*  app_size_human   (char *dst, size_t len, size_t value);
 
-double app_gettime(void);
 
 #define DN_MATCH_MALFORMED -1
-int dn_match (const char* hostname, const char* pat, size_t patLen);
-char* app_size_human (char* dst, size_t len, size_t value);
+int   dn_match (const char* hostname, const char* pat, size_t patLen);
 
 
 #ifdef __cplusplus

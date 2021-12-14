@@ -30,7 +30,9 @@
 #else /* __linux__ */
 #define TCP_FASTOPEN_CONNECT 0
 #endif /* __linux__ */
-#endif /* !TCP_FASTOPEN_CONNECT */
+#endif
+
+extern size_t strlcpy (char *dst, const char *src, size_t dsize);
 
 /*
  * Check if the given hostname is ipv6 literal

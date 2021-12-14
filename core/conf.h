@@ -1,6 +1,7 @@
 #ifndef CONF_H
 #define CONF_H
 
+#include <stdio.h>
 #include <ctype.h>
 #include <fcntl.h>
 #include <net/if.h>

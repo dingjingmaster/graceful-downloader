@@ -6,6 +6,9 @@
 #include "conn.h"
 #include "config.h"
 
+extern size_t strlcpy (char *dst, const char *src, size_t dsize);
+extern size_t strlcat (char *dst, const char *src, size_t dsize);
+
 
 int ftp_connect (Ftp *conn, int proto, char *host, int port, char *user,
     char *pass, unsigned io_timeout)

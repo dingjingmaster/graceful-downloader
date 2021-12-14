@@ -4,6 +4,9 @@
 
 #include "log.h"
 
+extern size_t strlcpy (char *dst, const char *src, size_t dsize);
+extern size_t strlcat (char *dst, const char *src, size_t dsize);
+
 /**
  * Convert an URL to a conn_t structure.
  */

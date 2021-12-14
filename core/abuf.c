@@ -1,12 +1,14 @@
 #include "config.h"
 
 #include <errno.h>
+#include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <stdio.h>
 
 #include "abuf.h"
 
+extern size_t strlcat (char *dst, const char *src, size_t dsize);
 
 /**
  * Abstract buffer allocation/free.
