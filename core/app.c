@@ -191,12 +191,11 @@ int app_open(App *app)
         app->conn = new_conn;
         app_divide (app);
     } else if ((fd = stfile_open(app->filename, O_RDONLY, 0)) != -1) {
-        int old_format = 0;
+        int oldFormat = 0;
         off_t stsize = lseek(fd, 0, SEEK_END);
         lseek(fd, 0, SEEK_SET);
 
-        nread = read(fd, &app->conf->num_connections,
-            sizeof(app->conf->num_connections));
+        nread = read (fd, &app->conf->num_connections, sizeof(app->conf->num_connections));
         if (nread != sizeof(app->conf->num_connections)) {
             loge ("%s.st: Error, truncated state file", app->filename);
             close(fd);
@@ -209,35 +208,33 @@ int app_open(App *app)
             return 0;
         }
 
-        if (stsize < (off_t)(sizeof(app->conf->num_connections) +
-                sizeof(app->bytes_done) +
-                2 * app->conf->num_connections *
-                    sizeof(app->conn[0].currentbyte))) {
+        if (stsize < (off_t) (sizeof (app->conf->num_connections) +
+                sizeof(app->bytes_done) + 2 * app->conf->num_connections * sizeof(app->conn[0].currentbyte))) {
             /* FIXME this might be wrong, the file may have been
              * truncated, we need another way to check. */
             logd ("State file has old format.");
-            old_format = 1;
+            oldFormat = 1;
         }
 
-        void *new_conn = realloc(app->conn, sizeof(Conn) * app->conf->num_connections);
-        if (!new_conn) {
+        void *newConn = realloc(app->conn, sizeof(Conn) * app->conf->num_connections);
+        if (!newConn) {
             close(fd);
             return 0;
         }
-        app->conn = new_conn;
+        app->conn = newConn;
 
         memset(app->conn + 1, 0, sizeof(Conn) * (app->conf->num_connections - 1));
 
-        if (old_format) {
+        if (oldFormat) {
             app_divide(app);
         }
 
-        nread = read(fd, &app->bytes_done, sizeof(app->bytes_done));
-        assert(nread == sizeof(app->bytes_done));
-        for (i = 0; i < app->conf->num_connections; i++) {
+        nread = read (fd, &app->bytes_done, sizeof (app->bytes_done));
+        assert(nread == sizeof (app->bytes_done));
+        for (i = 0; i < app->conf->num_connections; ++i) {
             nread = read(fd, &app->conn[i].currentbyte, sizeof(app->conn[i].currentbyte));
             assert(nread == sizeof(app->conn[i].currentbyte));
-            if (!old_format) {
+            if (!oldFormat) {
                 nread = read(fd, &app->conn[i].lastbyte, sizeof(app->conn[i].lastbyte));
                 assert(nread == sizeof(app->conn[i].lastbyte));
             }
@@ -277,11 +274,11 @@ int app_open(App *app)
             while (j > 0) {
                 ssize_t nwrite;
 
-                if ((nwrite =
-                        write(app->outfd, buffer,
-                            min(j, app->conf->buffer_size))) < 0) {
-                    if (errno == EINTR || errno == EAGAIN)
+                if ((nwrite = write(app->outfd, buffer, min(j, app->conf->buffer_size))) < 0) {
+                    if (errno == EINTR || errno == EAGAIN) {
                         continue;
+                    }
+
                     app_message(app, "Error creating local file");
                     return 0;
                 }
@@ -296,41 +293,38 @@ int app_open(App *app)
 void app_start(App *app)
 {
     int i;
-    Url* url_ptr;
+    Url* urlPtr = app->url;;
 
     /* HTTP might've redirected and FTP handles wildcards, so
        re-scan the URL for every conn */
-    url_ptr = app->url;
-    for (i = 0; i < app->conf->num_connections; i++) {
-        conn_set(&app->conn[i], url_ptr->text);
-        url_ptr = url_ptr->next;
+    for (i = 0; i < app->conf->num_connections; ++i) {
+        conn_set (&app->conn[i], urlPtr->text);
+        urlPtr = urlPtr->next;
         app->conn[i].local_if = app->conf->interfaces->text;
         app->conf->interfaces = app->conf->interfaces->next;
         app->conn[i].conf = app->conf;
-        if (i)
+        if (i) {
             app->conn[i].supported = true;
+        }
     }
 
-    if (app->conf->verbose > 0)
+    if (app->conf->verbose > 0) {
         app_message(app, "Starting download");
+    }
 
     for (i = 0; i < app->conf->num_connections; i++) {
         if (app->conn[i].currentbyte >= app->conn[i].lastbyte) {
             pthread_mutex_lock(&app->conn[i].lock);
-            reactivate_connection(app, i);
+            reactivate_connection (app, i);
             pthread_mutex_unlock(&app->conn[i].lock);
         } else if (app->conn[i].currentbyte < app->conn[i].lastbyte) {
             if (app->conf->verbose >= 2) {
                 app_message(app, "Connection %i downloading from %s:%i using interface %s",
-                    i, app->conn[i].host,
-                    app->conn[i].port,
-                    app->conn[i].local_if);
+                    i, app->conn[i].host, app->conn[i].port, app->conn[i].local_if);
             }
 
             app->conn[i].state = true;
-            if (pthread_create
-                (app->conn[i].setup_thread, NULL, setup_thread,
-                    &app->conn[i]) != 0) {
+            if (pthread_create (app->conn[i].setup_thread, NULL, setup_thread, &app->conn[i]) != 0) {
                 app_message(app, "pthread error!!!");
                 app->ready = -1;
             }
@@ -342,7 +336,7 @@ void app_start(App *app)
     app->ready = 0;
 }
 
-void app_do(App *app)
+void app_do (App *app)
 {
     fd_set fds[1];
     int hifd, i;
@@ -371,15 +365,16 @@ void app_do(App *app)
             pthread_mutex_unlock(&app->conn[i].lock);
         }
     }
+
     if (hifd == 0) {
         /* No connections yet. Wait... */
         if (gf_sleep(delay) < 0) {
-            app_message(app,
-                "Error while waiting for connection: %s",
-                strerror(errno));
+            app_message(app, "Error while waiting for connection: %s", strerror(errno));
             app->ready = -1;
+
             return;
         }
+
         goto conn_check;
     }
 
@@ -402,20 +397,18 @@ void app_do(App *app)
             goto next_conn;
 
         if (!FD_ISSET(app->conn[i].tcp->fd, fds)) {
-            time_t timeout = app->conn[i].last_transfer +
-                app->conf->connection_timeout;
+            time_t timeout = app->conn[i].last_transfer + app->conf->connection_timeout;
             if (app_gettime() > timeout) {
-                if (app->conf->verbose)
-                    app_message(app, "Connection %i timed out", i);
-                conn_disconnect(&app->conn[i]);
+                if (app->conf->verbose) {
+                    app_message (app, "Connection %i timed out", i);
+                }
+                conn_disconnect (&app->conn[i]);
             }
             goto next_conn;
         }
 
         app->conn[i].last_transfer = app_gettime();
-        size =
-            tcp_read(app->conn[i].tcp, buffer,
-                app->conf->buffer_size);
+        size = tcp_read(app->conn[i].tcp, buffer, app->conf->buffer_size);
         if (size == -1) {
             if (app->conf->verbose) {
                 app_message(app, "Error on connection %i! Connection closed", i);
@@ -427,17 +420,17 @@ void app_do(App *app)
         if (size == 0) {
             if (app->conf->verbose) {
                 /* Only abnormal behaviour if: */
-                if (app->conn[i].currentbyte <
-                        app->conn[i].lastbyte &&
-                    app->size != LLONG_MAX) {
+                if (app->conn[i].currentbyte < app->conn[i].lastbyte && app->size != LLONG_MAX) {
                     app_message(app, "Connection %i unexpectedly closed", i);
                 } else {
                     app_message(app, "Connection %i finished", i);
                 }
             }
+
             if (!app->conn[0].supported) {
                 app->ready = 1;
             }
+
             conn_disconnect(&app->conn[i]);
             reactivate_connection(app, i);
             goto next_conn;
@@ -453,25 +446,29 @@ void app_do(App *app)
             size = remaining;
             /* Don't terminate, still stuff to write! */
         }
+
         /* This should always succeed.. */
-        lseek(app->outfd, app->conn[i].currentbyte, SEEK_SET);
+        lseek (app->outfd, app->conn[i].currentbyte, SEEK_SET);
         if (write(app->outfd, buffer, size) != size) {
             app_message(app, "Write error!");
             app->ready = -1;
             pthread_mutex_unlock(&app->conn[i].lock);
             return;
         }
+
         app->conn[i].currentbyte += size;
         app->bytes_done += size;
-        if (remaining == size)
+        if (remaining == size) {
             reactivate_connection(app, i);
+        }
 
     next_conn:
         pthread_mutex_unlock(&app->conn[i].lock);
     }
 
-    if (app->ready)
+    if (app->ready) {
         return;
+    }
 
 conn_check:
     /* Look for aborted connections and attempt to restart them. */
@@ -481,12 +478,10 @@ conn_check:
         if (pthread_mutex_trylock(&app->conn[i].lock))
             continue;
 
-        if (!app->conn[i].enabled &&
-            app->conn[i].currentbyte < app->conn[i].lastbyte) {
+        if (!app->conn[i].enabled && app->conn[i].currentbyte < app->conn[i].lastbyte) {
             if (!app->conn[i].state) {
                 // Wait for termination of this thread
-                pthread_join(*(app->conn[i].setup_thread),
-                    NULL);
+                pthread_join(*(app->conn[i].setup_thread), NULL);
 
                 conn_set(&app->conn[i], url_ptr->text);
                 url_ptr = url_ptr->next;
@@ -521,9 +516,7 @@ conn_check:
     }
 
     /* Calculate current average speed and finish_time */
-    app->bytes_per_second =
-        (off_t)((double)(app->bytes_done - app->start_byte) /
-            (app_gettime() - app->start_time));
+    app->bytes_per_second = (off_t)((double)(app->bytes_done - app->start_byte) / (app_gettime() - app->start_time));
     if (app->bytes_per_second != 0)
         app->finish_time =
             (int)(app->start_time +
@@ -677,7 +670,7 @@ nomem:
 static void app_divide (App* app)
 {
     /* Optimize the number of connections in case the file is small */
-    off_t maxconns = max(1u, app->size / MIN_CHUNK_WORTH);
+    off_t maxconns = max (1u, app->size / MIN_CHUNK_WORTH);
     if (maxconns < app->conf->num_connections)
         app->conf->num_connections = maxconns;
 
@@ -689,7 +682,7 @@ static void app_divide (App* app)
         app->conf->num_connections = 1;
         seg_len = app->size;
 
-        Conn *newConn = realloc(app->conn, sizeof(*app->conn));
+        Conn *newConn = realloc(app->conn, sizeof (*app->conn));
         if (newConn)
             app->conn = newConn;
     }
@@ -816,21 +809,21 @@ static void reactivate_connection (App* app, int thread)
     off_t max_remaining = MIN_CHUNK_WORTH - 1;
     int idx = -1;
 
-    if (app->conn[thread].enabled ||
-        app->conn[thread].currentbyte < app->conn[thread].lastbyte)
+    if (app->conn[thread].enabled || app->conn[thread].currentbyte < app->conn[thread].lastbyte) {
         return;
+    }
 
     for (int j = 0; j < app->conf->num_connections; j++) {
-        off_t remaining =
-            app->conn[j].lastbyte - app->conn[j].currentbyte;
+        off_t remaining = app->conn[j].lastbyte - app->conn[j].currentbyte;
         if (remaining > max_remaining) {
             max_remaining = remaining;
             idx = j;
         }
     }
 
-    if (idx == -1)
+    if (idx == -1) {
         return;
+    }
 
     logd ("Reactivate connection %d", thread);
 

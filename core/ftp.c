@@ -20,8 +20,7 @@ int ftp_connect (Ftp *conn, int proto, char *host, int port, char *user,
 
     conn->proto = proto;
 
-    if (tcp_connect(&conn->tcp, host, port, PROTO_IS_SECURE(conn->proto),
-            conn->local_if, io_timeout) == -1)
+    if (tcp_connect(&conn->tcp, host, port, PROTO_IS_SECURE(conn->proto), conn->local_if, io_timeout) == -1)
         return 0;
 
     if (ftp_wait(conn) / 100 != 2)
