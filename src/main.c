@@ -19,22 +19,23 @@
 
 #define MAX_THREAD                  30
 #define SEM_KEY                     202112
-#define COMMANDLINE_BUF             102400
+#define COMMANDLINE_BUF             10240
 #define PROGRESS_NAME               "graceful-downloader"
 
 typedef struct _Main                Main;
-typedef enum _MAIN_OPERATION        MAIN_OPERATION;
 typedef struct _MainMessage         MainMessage;
+typedef enum _MainMessageOp         MainMessageOp;
 
-enum _MAIN_OPERATION
+enum _MainMessageOp
 {
     MAIN_MESSAGE_NONE,
-    MAIN_MESSAGE_ADD_URI,
+    MAIN_MESSAGE_CLIENT,
+    MAIN_MESSAGE_SERVICE,
 };
 
 struct _MainMessage
 {
-    MAIN_OPERATION          op;
+    MainMessageOp           op;
     char                    buf[COMMANDLINE_BUF];
 };
 
@@ -43,10 +44,12 @@ struct _Main
     bool                    isPrimary;
     bool                    shutdown;
 
-    sem_t*                  sem;
+    sem_t*                  clientSem;
+    sem_t*                  serviceSem;
 
-    int                     shmID;
-    MainMessage*            shmPtr;
+    char*                   clientBuf;
+    char*                   serverBuf;
+//    MainMessage*            message;
 
     GMainLoop*              mainLoop;
 
@@ -59,16 +62,10 @@ static void init ();
 static void destory ();
 static void stop(int signal);
 static void start_routine (void* data);
-static gboolean show_version (const gchar* optionName, const gchar* value, gpointer data, GError** error);
 
 
 static Main* gMain = NULL;
 static GApplication* gApp = NULL;
-
-const GOptionEntry operation[] = {
-    {"version", 'v', G_OPTION_FLAG_OPTIONAL_ARG, G_OPTION_ARG_CALLBACK, G_CALLBACK (show_version), "Display version information", NULL},
-    NULL
-};
 
 
 int main (int argc, char *argv[])
@@ -87,12 +84,15 @@ int main (int argc, char *argv[])
     // start command line detail
     if (!gMain->isPrimary) {
         g_autofree char* cmd = g_strjoinv ("|", argv);
-        MainMessage msg;
-        strncpy (msg.buf, cmd, sizeof (msg.buf));
-        memcpy (gMain->shmPtr, &msg, sizeof (MainMessage));
+        memcpy (gMain->clientBuf, cmd, COMMANDLINE_BUF - 1);
+        sem_post (gMain->serviceSem);
 
-        printf ("cmd: %s\n", cmd);
-        sem_post (gMain->sem);
+        //
+        sem_wait (gMain->clientSem);
+        printf ("%s\n", gMain->serverBuf);
+
+        memset (gMain->clientBuf, 0, COMMANDLINE_BUF);
+        memset (gMain->serverBuf, 0, COMMANDLINE_BUF);
 
         exit (0);
     }
@@ -151,46 +151,70 @@ static void init ()
         destory ();
         exit (-1);
     }
-    printf ("is:%d\n", gMain->isPrimary);
 
     int semFlag = O_RDWR;
     int shmFlag = O_RDWR;
+    mode_t mask = umask (0);
     if (gMain->isPrimary) {
         semFlag |= (O_CREAT | O_EXCL);
         shmFlag |= (O_CREAT | O_EXCL);
     }
-    sem_t* sem = sem_open (PROGRESS_NAME, semFlag, 0777, 1);
-    if (SEM_FAILED == sem) {
-        printf ("sem_open error: %s\n", strerror (errno));
-        destory ();
-        exit (-1);
-    }
-    gMain->sem = sem;
 
-    // shm
-    int shmID = shm_open (PROGRESS_NAME, shmFlag, 0777);
-    if (shmID < 0) {
-        printf ("shm_open error: %s\n", strerror (errno));
-        destory ();
-        exit (-1);
-    }
-    gMain->shmID = shmID;
 
-    int ret = ftruncate (gMain->shmID, sizeof (MainMessage));
-    if (ret < 0) {
-        printf ("ftruncate fail, %s\n", strerror (errno));
-        destory ();
-        exit (-1);
+    for (int i = 0; i < 2; ++i) {
+        // sem
+        g_autofree char* key = g_strdup_printf ("%s_%d", PROGRESS_NAME, i);
+        sem_t* sem = sem_open (key, semFlag, 0700, 0);
+        if (SEM_FAILED == sem) {
+            printf ("sem_open error: %s\n", strerror (errno));
+            umask (mask);
+            destory ();
+            exit (-1);
+        }
+
+        switch (i) {
+        case 0:
+            gMain->clientSem = sem;
+            break;
+        case 1:
+            gMain->serviceSem = sem;
+        }
+
+        // shm
+        int shmID = shm_open (key, shmFlag, 0700);
+        if (shmID < 0) {
+            printf ("shm_open error: %s\n", strerror (errno));
+            umask (mask);
+            destory ();
+            exit (-1);
+        }
+        umask (mask);
+
+        if (gMain->isPrimary) {
+            int ret = ftruncate (shmID, COMMANDLINE_BUF);
+            if (ret < 0) {
+                printf ("ftruncate fail, %s\n", strerror (errno));
+                destory ();
+                exit (-1);
+            }
+        }
+
+        void* addr = mmap (NULL, COMMANDLINE_BUF, PROT_READ | PROT_WRITE, MAP_SHARED, shmID, SEEK_SET);
+        if (MAP_FAILED == addr) {
+            printf ("mmap address fail! %s\n", strerror (errno));
+            destory ();
+            exit (-1);
+        }
+
+        switch (i) {
+        case 0:
+            gMain->clientBuf = addr;
+            break;
+        case 1:
+            gMain->serverBuf = addr;
+        }
     }
 
-    void* addr = mmap (NULL, sizeof (MainMessage), PROT_READ | PROT_WRITE, MAP_SHARED, gMain->shmID, SEEK_SET);
-    if (NULL == addr) {
-        printf ("mmap address fail! %s\n", strerror (errno));
-        destory ();
-        exit (-1);
-    }
-
-    gMain->shmPtr = (MainMessage*) addr;
 
     gMain->mainLoop = g_main_loop_new (NULL, true);
     if (!gMain->mainLoop) {
@@ -208,18 +232,25 @@ static void destory ()
 
     if (gMain->commandLine > 0) {
         pthread_join (gMain->commandLine, NULL);
-    }
+    }    
 
-    if (gMain->shmPtr) {
-        munmap (gMain->shmPtr, sizeof (MainMessage));
+    if (gMain->clientBuf) {
+        munmap (gMain->clientBuf, sizeof (COMMANDLINE_BUF));
     }
+    gMain->clientBuf = NULL;
+
+    if (gMain->serverBuf) {
+        munmap (gMain->serverBuf, sizeof (COMMANDLINE_BUF));
+    }
+    gMain->serverBuf = NULL;
 
     if (gMain->isPrimary) {
-        shm_unlink (PROGRESS_NAME);
-        sem_unlink (PROGRESS_NAME);
+        for (int i = 0; i < 2; ++i) {
+            g_autofree char* key = g_strdup_printf ("%s_%d", PROGRESS_NAME, i);
+            shm_unlink (key);
+            sem_unlink (key);
+        }
     }
-
-    gMain->shmPtr = NULL;
 
     if (gMain->mainLoop && g_main_loop_is_running (gMain->mainLoop)) {
         g_main_loop_quit (gMain->mainLoop);
@@ -233,7 +264,7 @@ static void stop(int signal)
     }
 
     if (gMain->isPrimary) {
-        sem_post (gMain->sem);
+        sem_post (gMain->serviceSem);
     }
 
     destory ();
@@ -241,27 +272,51 @@ static void stop(int signal)
 
 static void start_routine (void* data)
 {
-    //
-    while (!gMain->shutdown) {
-        sem_wait (gMain->sem);
+    // help
+    g_autofree char* help =
+        g_strdup_printf ("Usage: %s [options] [url1] [uri2] [url...]\n"
+                        "\n"
+                        "  -h\tThis information\n"
+                        "  -v\tVersion information\n", PROGRESS_NAME);
 
-        logd ("get option: %d -- %s", gMain->shmPtr->op, (MainMessage*) (gMain->shmPtr)->buf);
+    // version
+    g_autofree char* version =
+        g_strdup_printf ("%s versio: %d.%d.%d\n", PROGRESS_NAME, VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
+
+    while (!gMain->shutdown) {
+        sem_wait (gMain->serviceSem);
+
+        logd ("get option >> c: %s -- s: %s", gMain->clientBuf, gMain->serverBuf);
 
         // parse command line
+        bool find = false;
+        char** arr = g_strsplit (gMain->clientBuf, "|", -1);
+        int len = g_strv_length (arr);
+        for (int i = 0; i < len; ++i) {
+            if (arr[i] && g_str_has_prefix (arr[i], "-")) {
+                if (0 == g_ascii_strcasecmp ("-h", arr[i])) {
+                    int min = min (strlen (help), COMMANDLINE_BUF - 1);
+                    memset (gMain->serverBuf, 0, COMMANDLINE_BUF);
+                    memcpy (gMain->serverBuf, help, min);
+                    find = true;
+                    sem_post (gMain->clientSem);
+                    break;
+                } else if (0 == g_ascii_strcasecmp ("-v", arr[i])) {
+                    int min = min (strlen (version), COMMANDLINE_BUF - 1);
+                    memset (gMain->serverBuf, 0, COMMANDLINE_BUF);
+                    memcpy (gMain->serverBuf, version, min);
+                    find = true;
+                    sem_post (gMain->clientSem);
+                    break;
+                }
+            }
+        }
 
-        // write back
-
-//        if (!sem_v ()) {
-//            loge ("sem_v error");
-//            break;
-//        }
+        if (!find) {
+            int min = min (strlen (help), COMMANDLINE_BUF - 1);
+            memset (gMain->serverBuf, 0, COMMANDLINE_BUF);
+            memcpy (gMain->serverBuf, help, min);
+            sem_post (gMain->clientSem);
+        }
     }
-}
-
-
-static gboolean show_version (const gchar* optionName, const gchar* value, gpointer data, GError** error)
-{
-    printf ("graceful-downloader version: %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
-
-    return TRUE;
 }
