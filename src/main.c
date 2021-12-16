@@ -17,7 +17,7 @@
 #include "global.h"
 #include "thread-pool.h"
 
-#define MAX_THREAD                  30
+#define MAX_THREAD                  10
 #define SEM_KEY                     202112
 #define COMMANDLINE_BUF             10240
 #define PROGRESS_NAME               "graceful-downloader"
@@ -49,7 +49,6 @@ struct _Main
 
     char*                   clientBuf;
     char*                   serverBuf;
-//    MainMessage*            message;
 
     GMainLoop*              mainLoop;
 
@@ -61,7 +60,7 @@ struct _Main
 static void init ();
 static void destory ();
 static void stop(int signal);
-static void start_routine (void* data);
+static void* start_routine (void* data);
 
 
 static Main* gMain = NULL;
@@ -97,7 +96,7 @@ int main (int argc, char *argv[])
         exit (0);
     }
 
-    int ret = pthread_create (&(gMain->commandLine), NULL, (void*) start_routine, NULL);
+    int ret = pthread_create (&(gMain->commandLine), NULL, start_routine, NULL);
     if (0 != ret) {
         printf ("pthread_create error: %s\n", strerror (errno));
         destory ();
@@ -113,7 +112,15 @@ int main (int argc, char *argv[])
         dir = g_strdup_printf ("%s", tmpDir);
     }
 
-    log_init (LOG_TYPE_FILE, LOG_DEBUG, LOG_ROTATE_TRUE, 2 << 20, dir, PROGRESS_NAME, "log");
+    log_init (LOG_TYPE_FILE, LOG_DEBUG, LOG_ROTATE_FALSE, 2 << 30, dir, PROGRESS_NAME, "log");
+
+    // start main
+    ret = thread_pool_init (MAX_THREAD);
+    if (0 != ret) {
+        printf ("thread_pool_init error!\n");
+        destory ();
+        exit (-1);
+    }
 
     g_main_loop_run (gMain->mainLoop);
 
@@ -250,6 +257,21 @@ static void destory ()
             shm_unlink (key);
             sem_unlink (key);
         }
+
+        thread_pool_destory();
+    }
+
+    if (gMain->mainLoop && g_main_loop_is_running (gMain->mainLoop)) {
+        g_main_loop_quit (gMain->mainLoop);
+    }
+
+    logi ("%s stoped!", PROGRESS_NAME);
+}
+
+static void stop(int signal)
+{
+    if (gMain->isPrimary) {
+        sem_post (gMain->serviceSem);
     }
 
     if (gMain->mainLoop && g_main_loop_is_running (gMain->mainLoop)) {
@@ -257,20 +279,7 @@ static void destory ()
     }
 }
 
-static void stop(int signal)
-{
-    if (g_main_loop_is_running (gMain->mainLoop)) {
-        g_main_loop_quit (gMain->mainLoop);
-    }
-
-    if (gMain->isPrimary) {
-        sem_post (gMain->serviceSem);
-    }
-
-    destory ();
-}
-
-static void start_routine (void* data)
+static void* start_routine (void* data)
 {
     // help
     g_autofree char* help =
@@ -319,4 +328,6 @@ static void start_routine (void* data)
             sem_post (gMain->clientSem);
         }
     }
+
+    return NULL;
 }

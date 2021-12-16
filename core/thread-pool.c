@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <gio/gio.h>
 
 struct _thread_worker_t
 {
@@ -22,7 +23,7 @@ struct _thread_pool_t
     pthread_cond_t              ready;
 };
 
-static void* thread_pool_routine(void* arg);
+static void thread_pool_routine (void* arg);
 
 static thread_pool_t*           threadpool = NULL;
 
@@ -32,39 +33,36 @@ int thread_pool_init (int num)
         return -1;
     }
 
-    int             i = 0;
     int             ret = 0;
 
-    threadpool = (thread_pool_t*) malloc (sizeof(thread_pool_t));
+    threadpool = (thread_pool_t*) g_malloc0 (sizeof(thread_pool_t));
     if (NULL == threadpool) {
         return -1;
     }
 
-    memset (threadpool, 0, sizeof(thread_pool_t));
-
-       // 初始化线程池参数
+    // 初始化线程池参数
     threadpool->threadnum = num;
     threadpool->shutdown = 0;
     threadpool->workernum = 0;
     threadpool->workerlist = NULL;
 
-       // 初始化锁和条件变量
-    pthread_mutex_init(&(threadpool->lock), NULL);
-    pthread_cond_init(&(threadpool->ready), NULL);
+    // 初始化锁和条件变量
+    pthread_mutex_init (&(threadpool->lock), NULL);
+    pthread_cond_init (&(threadpool->ready), NULL);
 
-       // 创建线程
-    threadpool->threadid = (pthread_t*) malloc (sizeof(pthread_t) * num);
+    // 创建线程
+    threadpool->threadid = (pthread_t*) g_malloc0 (sizeof (pthread_t) * num);
     if (NULL == threadpool->threadid) {
         free (threadpool);
         return -1;
     }
-    memset(threadpool->threadid, 0, sizeof(pthread_t) * num);
 
-    for (i = 0; i < num; ++i) {
-        ret = pthread_create(&(threadpool->threadid[i]), NULL, thread_pool_routine, NULL);
+    for (int i = 0; i < num; ++i) {
+        ret = pthread_create (&(threadpool->threadid[i]), NULL, (void*) thread_pool_routine, NULL);
         if (0 != ret) {
             free (threadpool->threadid);
             free (threadpool);
+            threadpool = NULL;
             return -1;
         }
     }
@@ -72,19 +70,20 @@ int thread_pool_init (int num)
     return 0;
 }
 
-static void* thread_pool_routine(void* arg)
+static void thread_pool_routine (void* arg)
 {
     while (1) {
         pthread_mutex_lock (&(threadpool->lock));
         while ((0 == threadpool->shutdown) && (0 == threadpool->workernum)) {
-            pthread_cond_wait(&(threadpool->ready), &(threadpool->lock));
+            pthread_cond_wait (&(threadpool->ready), &(threadpool->lock));
         }
 
         if (1 == threadpool->shutdown) {
             pthread_mutex_unlock (&(threadpool->lock));
             pthread_exit (NULL);
         }
-        -- threadpool->workernum;
+
+        --threadpool->workernum;
         thread_worker_t* worker = threadpool->workerlist;
         threadpool->workerlist = threadpool->workerlist->next;
         pthread_mutex_unlock (&(threadpool->lock));
@@ -134,19 +133,22 @@ int thread_pool_add_work (thread_worker_cb workerfunc, void* arg)
 
 void thread_pool_destory ()
 {
-    if (1 == threadpool->shutdown) {
+    if (!threadpool || (1 == threadpool->shutdown)) {
         return;
     }
-    int                 i = 0;
+
     thread_worker_t*    phead = NULL;
     thread_worker_t*    pnext = NULL;
 
     threadpool->shutdown = 1;
     pthread_cond_broadcast (&(threadpool->ready));
 
-    for (i = 0; i < threadpool->threadnum; ++i) {
-        pthread_join (threadpool->threadid[i], NULL);
+    for (int i = 0; i < threadpool->threadnum; ++i) {
+        if (threadpool->threadid[i] > 0) {
+            pthread_join (threadpool->threadid[i], NULL);
+        }
     }
+    threadpool->threadnum = 0;
 
     if (NULL != threadpool->threadid) {
         free (threadpool->threadid);
@@ -165,5 +167,6 @@ void thread_pool_destory ()
 
     if (NULL != threadpool) {
         free (threadpool);
+        threadpool = NULL;
     }
 }
