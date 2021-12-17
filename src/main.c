@@ -124,8 +124,9 @@ int main (int argc, char *argv[])
 
     g_main_loop_run (gMain->mainLoop);
 
-
     destory ();
+
+    logi ("%s stoped!", PROGRESS_NAME);
 
     return 0;
 }
@@ -264,8 +265,6 @@ static void destory ()
     if (gMain->mainLoop && g_main_loop_is_running (gMain->mainLoop)) {
         g_main_loop_quit (gMain->mainLoop);
     }
-
-    logi ("%s stoped!", PROGRESS_NAME);
 }
 
 static void stop(int signal)
