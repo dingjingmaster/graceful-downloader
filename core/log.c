@@ -23,14 +23,14 @@
 #define PATH_SPLIT                  '/'
 
 static const char* _log_level_str[] = {
-    "EMERG",
-    "ALERT",
-    "CRIT",
-    "ERROR",
-    "WARN",
-    "NOTICE",
-    "INFO",
-    "DEBUG",
+    " EMERG ",
+    " ALERT ",
+    " CRIT  ",
+    " ERROR ",
+    " WARN  ",
+    " NOTICE",
+    " INFO  ",
+    " DEBUG ",
     "VERBOSE",
     NULL
 };

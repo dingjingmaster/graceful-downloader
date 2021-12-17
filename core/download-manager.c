@@ -1,13 +1,8 @@
+#include "download-manager.h"
+
 #include <stdlib.h>
-#include <stdbool.h>
-#include <gio/gio.h>
 
 #include "log.h"
-
-
-bool protocol_register ();
-void protocol_unregister ();
-GUri* url_Analysis (char* url);
 
 
 static GHashTable* gIpAndPortHash = NULL;
@@ -34,7 +29,7 @@ bool protocol_register ()
     return true;
 }
 
-GUri* url_Analysis (char* url)
+GUri* url_Analysis (const char* url)
 {
     g_return_val_if_fail (url, NULL);
     logd ("get uri: %s", url);
@@ -43,22 +38,21 @@ GUri* url_Analysis (char* url)
 
     char** arr = g_strsplit (url, "://", -1);
     int len = g_strv_length (arr);
+    g_autoptr (GUri) uri = NULL;
+    g_autoptr (GError) error = NULL;
     switch (len) {
     case 1: {
-        g_autoptr (GError) error = NULL;
         g_autofree char* turi = g_strdup_printf ("http://%s", url);
-        g_autoptr (GUri) uri = g_uri_parse (turi, G_URI_FLAGS_NONE, &error);
+        uri = g_uri_parse (turi, G_URI_FLAGS_NONE, &error);
         if (error) {
             logi ("input url '%s' => '%s' parse error: %s", url, turi, error->message);
-            return NULL;
+            goto out;
         }
 
-        return g_object_ref (uri);
+        logd ("input url '%s' use default http protocol!", url);
     }
     break;
     case 2: {
-        g_autoptr (GUri) uri = NULL;
-        g_autoptr (GError) error = NULL;
         char* schema = arr[0];
         // check schema is supported
         if (g_hash_table_contains (gIpAndPortHash, schema)) {
@@ -66,28 +60,30 @@ GUri* url_Analysis (char* url)
             uri = g_uri_parse (url, G_URI_FLAGS_NONE, &error);
             if (error) {
                 logi ("input url '%s' parse error: %s", url, error->message);
+                goto out;
             }
+            logd ("input url '%s' use protocol '%s'!", url, schema);
         }
-
-        g_return_val_if_fail (uri, NULL);
-
-        return uri;
     }
     break;
     default: {
         logd ("Not found schema for uri '%s'", url);
-        g_strfreev (arr);
-        return NULL;
     }
     }
 
+out:
     if (arr) g_strfreev (arr);
 
-    return NULL;
+    return uri ? g_uri_ref (uri) : NULL;
 }
 
 void protocol_unregister ()
 {
     if (gIpAndPortHash)     g_hash_table_unref (gIpAndPortHash);
     if (gHostAndUserInfo)   g_hash_table_unref (gHostAndUserInfo);
+}
+
+void *download(DownloadData *data)
+{
+    return NULL;
 }

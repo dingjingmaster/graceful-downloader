@@ -16,6 +16,7 @@
 #include "log.h"
 #include "global.h"
 #include "thread-pool.h"
+#include "download-manager.h"
 
 #define MAX_THREAD                  10
 #define SEM_KEY                     202112
@@ -62,11 +63,7 @@ static void destory ();
 static void stop (int signal);
 static void* start_routine (void* data);
 static void message_to_client (char* msg);
-
-
-extern bool protocol_register ();
-extern void protocol_unregister ();
-extern GUri* url_Analysis (char* url);
+static void message_to_client_append (char* msg);
 
 
 static Main* gMain = NULL;
@@ -299,7 +296,10 @@ static void* start_routine (void* data)
         g_strdup_printf ("Usage: %s [options] [url1] [uri2] [url...]\n"
                         "\n"
                         "  -h\tThis information\n"
-                        "  -v\tVersion information\n", PROGRESS_NAME);
+                        "  -v\tVersion information\n"
+                        "  -f\tSet the name of the downloaded file\n"
+                        "  -d\tSet the path for saving the downloaded file\n"
+                        "", PROGRESS_NAME);
 
     // version
     g_autofree char* version =
@@ -312,8 +312,13 @@ static void* start_routine (void* data)
 
         // parse command line
         bool find = false;
+        char* file = NULL;
+        char* dir = NULL;
+        GList* uris = NULL;
+        GList* notSupportedUri = NULL;
         char** arr = g_strsplit (gMain->clientBuf, "|", -1);
         int len = g_strv_length (arr);
+
         for (int i = 0; i < len; ++i) {
             if (arr[i] && g_str_has_prefix (arr[i], "-")) {
                 if (0 == g_ascii_strcasecmp ("-h", arr[i])) {
@@ -324,15 +329,80 @@ static void* start_routine (void* data)
                     find = true;
                     message_to_client (version);
                     break;
+                } else if (0 == g_ascii_strcasecmp ("-f", arr[i])) {
+                    if (i + 1 < len) {
+                        i += 1;
+                        file = arr [i];
+                    }
+                    continue;
+                } else if (0 == g_ascii_strcasecmp ("-d", arr[i])) {
+                    if (i + 1 < len) {
+                        i += 1;
+                        dir = arr [i];
+                    }
+                    continue;
                 }
             } else {
-                // uri
+                find = true;
+                GUri* uri = url_Analysis (arr[i]);
+                if (uri) {
+                    uris = g_list_append (uris, uri);
+                    logd ("Supported uri: %s", arr[i]);
+                } else {
+                    logd ("Not supported uri: %s", arr[i]);
+                    notSupportedUri = g_list_append (notSupportedUri, arr[i]);
+                }
             }
         }
 
         if (!find) {
             message_to_client (help);
+        } else {
+            // some uri not supported, tell client
+            if (notSupportedUri) {
+                g_autofree char* turi = NULL;
+                notSupportedUri = g_list_sort (notSupportedUri, (void*) g_strcmp0);
+                for (GList* l = notSupportedUri; NULL != l; l = l->next) {
+                    g_autofree gchar* tmp = turi;
+                    if (!turi) {
+                        turi = g_strdup (l->data);
+                    } else {
+                        turi = g_strdup_printf ("%s\n%s", tmp, (char*) l->data);
+                    }
+                }
+                g_list_free (notSupportedUri);
+
+                g_autofree char* nsupportMsg = g_strdup_printf ("These URIs are not yet supported:\n"
+                                                               "%s\n", turi);
+                message_to_client (nsupportMsg);
+            }
+
+            // add task
+
+            // print callback
+            if (uris) {
+                g_autofree char* turi = NULL;
+                uris = g_list_sort (uris, (void*) g_strcmp0);
+                for (GList* l = uris; NULL != l; l = l->next) {
+                    g_autofree gchar* tmp = turi;
+                    g_autofree char* uri = g_uri_to_string (l->data);
+                    if (!turi) {
+                        turi = g_strdup (uri);
+                    } else {
+                        turi = g_strdup_printf ("%s\n%s", tmp, uri);
+                    }
+                }
+                g_list_free (uris);
+
+                g_autofree char* supportMsg = g_strdup_printf ("These URIs are about to be added to the download queue:\n"
+                                                               "%s\n", turi);
+                message_to_client_append (supportMsg);
+            }
         }
+
+        sem_post (gMain->clientSem);
+
+        if (arr) g_strfreev (arr);
     }
 
     return NULL;
@@ -344,5 +414,17 @@ static void message_to_client (char* msg)
     memset (gMain->clientBuf, 0, COMMANDLINE_BUF);
     memset (gMain->serverBuf, 0, COMMANDLINE_BUF);
     memcpy (gMain->serverBuf, msg, min);
-    sem_post (gMain->clientSem);
 }
+
+static void message_to_client_append (char* msg)
+{
+    int curLen = strlen (gMain->serverBuf);
+    int min = min (strlen (msg) + curLen + 1, COMMANDLINE_BUF - 1);
+    min -= curLen;
+
+    g_return_if_fail (min > 0);
+
+    memcpy (gMain->serverBuf + curLen, "\n", 1);
+    memcpy (gMain->serverBuf + curLen + 1, msg, min - 1);
+}
+
