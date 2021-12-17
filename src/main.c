@@ -298,8 +298,6 @@ static void* start_routine (void* data)
                         "  -h\tThis information\n"
                         "  -v\tVersion information\n"
                         "  -l\tList supported protocols\n"
-                        "  -f\tSet the name of the downloaded file,\n"
-                        "    \t<Note that this parameter only applies to the URI appended this time>\n"
                         "  -d\tSet the path for saving the downloaded file,\n"
                         "    \t<Note that this parameter only applies to the URI appended this time>\n"
                         "", PROGRESS_NAME);
@@ -314,7 +312,6 @@ static void* start_routine (void* data)
         logd ("get option >> c: %s -- s: %s", gMain->clientBuf, gMain->serverBuf);
 
         // parse command line
-        char* file = NULL;
         char* dir = NULL;
         GList* uris = NULL;
         bool hasUri = false;
@@ -344,12 +341,6 @@ static void* start_routine (void* data)
                     g_list_free_full (ll, g_free);
                     message_to_client (schemas);
                     goto out;
-                } else if (0 == g_ascii_strcasecmp ("-f", arr[i])) {
-                    if (i + 1 < len) {
-                        i += 1;
-                        file = arr [i];
-                    }
-                    continue;
                 } else if (0 == g_ascii_strcasecmp ("-d", arr[i])) {
                     if (i + 1 < len) {
                         i += 1;
