@@ -59,8 +59,14 @@ struct _Main
 
 static void init ();
 static void destory ();
-static void stop(int signal);
+static void stop (int signal);
 static void* start_routine (void* data);
+static void message_to_client (char* msg);
+
+
+extern bool protocol_register ();
+extern void protocol_unregister ();
+extern GUri* url_Analysis (char* url);
 
 
 static Main* gMain = NULL;
@@ -82,7 +88,7 @@ int main (int argc, char *argv[])
 
     // start command line detail
     if (!gMain->isPrimary) {
-        g_autofree char* cmd = g_strjoinv ("|", argv);
+        g_autofree char* cmd = g_strjoinv ("|", &argv[1]);
         memcpy (gMain->clientBuf, cmd, COMMANDLINE_BUF - 1);
         sem_post (gMain->serviceSem);
 
@@ -94,6 +100,12 @@ int main (int argc, char *argv[])
         memset (gMain->serverBuf, 0, COMMANDLINE_BUF);
 
         exit (0);
+    }
+
+    if (!protocol_register ()) {
+        printf ("protocol_register error!\n");
+        destory ();
+        exit (-1);
     }
 
     int ret = pthread_create (&(gMain->commandLine), NULL, start_routine, NULL);
@@ -261,6 +273,7 @@ static void destory ()
         }
 
         thread_pool_destory();
+        protocol_unregister ();
     }
 
     if (gMain->mainLoop && g_main_loop_is_running (gMain->mainLoop)) {
@@ -304,30 +317,32 @@ static void* start_routine (void* data)
         for (int i = 0; i < len; ++i) {
             if (arr[i] && g_str_has_prefix (arr[i], "-")) {
                 if (0 == g_ascii_strcasecmp ("-h", arr[i])) {
-                    int min = min (strlen (help), COMMANDLINE_BUF - 1);
-                    memset (gMain->serverBuf, 0, COMMANDLINE_BUF);
-                    memcpy (gMain->serverBuf, help, min);
                     find = true;
-                    sem_post (gMain->clientSem);
+                    message_to_client (help);
                     break;
                 } else if (0 == g_ascii_strcasecmp ("-v", arr[i])) {
-                    int min = min (strlen (version), COMMANDLINE_BUF - 1);
-                    memset (gMain->serverBuf, 0, COMMANDLINE_BUF);
-                    memcpy (gMain->serverBuf, version, min);
                     find = true;
-                    sem_post (gMain->clientSem);
+                    message_to_client (version);
                     break;
                 }
+            } else {
+                // uri
             }
         }
 
         if (!find) {
-            int min = min (strlen (help), COMMANDLINE_BUF - 1);
-            memset (gMain->serverBuf, 0, COMMANDLINE_BUF);
-            memcpy (gMain->serverBuf, help, min);
-            sem_post (gMain->clientSem);
+            message_to_client (help);
         }
     }
 
     return NULL;
+}
+
+static void message_to_client (char* msg)
+{
+    int min = min (strlen (msg), COMMANDLINE_BUF - 1);
+    memset (gMain->clientBuf, 0, COMMANDLINE_BUF);
+    memset (gMain->serverBuf, 0, COMMANDLINE_BUF);
+    memcpy (gMain->serverBuf, msg, min);
+    sem_post (gMain->clientSem);
 }
