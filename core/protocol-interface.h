@@ -2,22 +2,39 @@
 #define PROTOCOLINTERFACE_H
 
 #include <stdbool.h>
+#include <gio/gio.h>
 
-typedef struct _Downloader  Downloader;
+typedef struct _Downloader          Downloader;
+typedef struct _DownloadData        DownloadData;
+typedef struct _DownloadMethod      DownloadMethod;
 
-typedef bool (*init)    (Downloader* data);
-typedef bool (*run)     (Downloader* data);
-typedef void (*free)    (Downloader* data);
+typedef bool (*Init)    (Downloader* data);
+typedef bool (*Run)     (Downloader* data);
+typedef void (*Free)    (Downloader* data);
+
+struct _DownloadData
+{
+    GUri*                   uri;
+    char*                   outputDir;
+    char*                   outputName;
+
+    /**
+     * @TODO read and write lock for progress
+     */
+};
+
+struct _DownloadMethod
+{
+    Init                    init;
+    Run                     run;
+    Free                    free;
+};
 
 struct _Downloader
 {
-    char*           schema;
-    char*           url;
+    DownloadMethod*         method;
 
-    int             status;
-    char*           message;
-
-    void*           data;
+    DownloadData*           data;
 };
 
 

@@ -386,12 +386,15 @@ static void* start_routine (void* data)
                 message_to_client (nsupportMsg);
             }
 
-            // add task
-
             // print callback
             if (uris) {
+                // add Task
+                DownloadTask task;
+                task.uris = uris;
+                if (dir) task.dir = g_strdup (dir);
+                download (&task);
+
                 g_autofree char* turi = NULL;
-                uris = g_list_sort (uris, (void*) g_strcmp0);
                 for (GList* l = uris; NULL != l; l = l->next) {
                     g_autofree gchar* tmp = turi;
                     g_autofree char* uri = g_uri_to_string (l->data);
@@ -401,11 +404,12 @@ static void* start_routine (void* data)
                         turi = g_strdup_printf ("%s\n%s", tmp, uri);
                     }
                 }
-                g_list_free (uris);
 
                 g_autofree char* supportMsg = g_strdup_printf ("These URIs are about to be added to the download queue:\n"
                                                                "%s\n", turi);
                 message_to_client_append (supportMsg);
+
+                g_list_free_full (uris, (void*) g_uri_unref);
             }
         }
 

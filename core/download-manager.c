@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "log.h"
+#include "thread-pool.h"
 
 
 static GHashTable* gIpAndPortHash = NULL;
@@ -83,12 +84,7 @@ void protocol_unregister ()
     if (gHostAndUserInfo)   g_hash_table_unref (gHostAndUserInfo);
 }
 
-void *download(DownloadData *data)
-{
-    return NULL;
-}
-
-GList* get_supported_schema()
+GList* get_supported_schema ()
 {
     GList* l = g_hash_table_get_keys (gIpAndPortHash);
 
@@ -97,4 +93,50 @@ GList* get_supported_schema()
     g_list_free (l);
 
     return r;
+}
+
+void download (const DownloadTask *data)
+{
+    g_return_if_fail (data);
+
+    for (GList* l = data->uris; NULL != l; l = l->next) {
+        g_autofree gchar* name = NULL;
+
+        const char* path = g_uri_get_path ((GUri*) (l->data));
+        if (path) {
+            // name
+            g_autofree char* path1 = g_uri_unescape_string (path, NULL);
+            if (path1) {
+                char** arr = g_strsplit (path1, "/", -1);
+                int len = g_strv_length (arr);
+                if (len > 0) {
+                    name = g_strdup (arr[len - 1]);
+                }
+                g_strfreev (arr);
+            }
+        }
+
+        //
+        DownloadData* data1 = g_malloc0 (sizeof (DownloadData));
+        if (!data1) {
+            logd ("DownloadData g_malloc0 error");
+            continue;
+        }
+
+        Downloader* dd = g_malloc0 (sizeof (Downloader));
+        if (!dd) {
+            logd ("Downloader g_malloc0 error");
+            if (data1) g_free (data1);
+            continue;
+        }
+
+        if (data->dir)      data1->outputDir = g_strdup (data->dir);
+        if (l->data)        data1->uri = g_uri_ref (l->data);
+        if (name)           data1->outputName = g_strdup (name);
+
+        dd->data = data1;
+
+        // FIXME:// method
+        thread_pool_add_work (NULL, dd);
+    }
 }
