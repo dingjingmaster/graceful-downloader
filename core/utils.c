@@ -1,8 +1,11 @@
 #include "utils.h"
 
+#include <stdio.h>
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdbool.h>
+#include <gio/gio.h>
 #include <sys/time.h>
 
 double gf_gettime (void)
@@ -72,4 +75,40 @@ size_t gf_strlcat(char *dst, const char *src, size_t dsize)
     *dst = '\0';
 
     return (dlen + (src - osrc)); /* count does not include NUL */
+}
+
+int gf_get_process_num_by_name (const char *progressName)
+{
+    int num = 0;
+    char str[10] = {0};
+
+    g_return_val_if_fail (progressName, -1);
+
+    g_autofree char* buf = NULL;
+    g_autofree char* cmd = g_strdup_printf ("pidof %s", progressName);
+
+    FILE* fp = popen (cmd, "r");
+    if (NULL != fp) {
+        for (int ret = 1; ret > 0;) {
+            memset (str, 0, sizeof (str));
+            ret = fread (str, sizeof (str), sizeof (char), fp);
+            if (!buf) {
+                buf = g_strdup (str);
+            } else {
+                g_autofree char* tmp = buf;
+                buf = g_strdup_printf ("%s%s", tmp, str);
+            }
+        }
+        pclose (fp);
+
+        g_return_val_if_fail (buf, -1);
+
+        char** arr = g_strsplit (buf, " ", -1);
+
+        num = g_strv_length (arr);
+
+        if (arr) g_strfreev (arr);
+    }
+
+    return num;
 }

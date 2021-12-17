@@ -14,6 +14,7 @@
 #include <semaphore.h>
 
 #include "log.h"
+#include "utils.h"
 #include "global.h"
 #include "thread-pool.h"
 #include "download-manager.h"
@@ -85,6 +86,11 @@ int main (int argc, char *argv[])
 
     // start command line detail
     if (!gMain->isPrimary) {
+        if (gf_get_process_num_by_name (PROGRESS_NAME) > 2) {
+            logi ("open too many instance!");
+            exit (0);
+        }
+
         g_autofree char* cmd = g_strjoinv ("|", &argv[1]);
         memcpy (gMain->clientBuf, cmd, COMMANDLINE_BUF - 1);
         sem_post (gMain->serviceSem);
@@ -151,23 +157,20 @@ static void init ()
         exit (-1);
     }
 
-    char tbuf[32] = {0};
-    gMain->isPrimary = true;
-    FILE* fp = popen ("pidof " PROGRESS_NAME, "r");
-    if (NULL != fp) {
-        if (NULL != fgets (tbuf, sizeof (tbuf) - 1, fp)) {
-            gchar** arr = g_strsplit (tbuf, " ", -1);
-            if (strlen (tbuf) > 0 && g_strv_length (arr) > 1) {
-                gMain->isPrimary = false;
-            }
-            if (arr) g_strfreev (arr);
-        }
-        pclose (fp);
-    } else {
-        gMain->isPrimary = false;
-        printf ("popen error!\n");
+    int num = gf_get_process_num_by_name (PROGRESS_NAME);
+    switch (num) {
+    case -1: {
+        printf ("gf_get_process_num_by_name error!\n");
         destory ();
-        exit (-1);
+    }
+    break;
+    case 0:
+    case 1: {
+        gMain->isPrimary = true;
+    }
+    break;
+    default:
+        gMain->isPrimary = false;
     }
 
     int semFlag = O_RDWR;
