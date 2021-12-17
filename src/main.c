@@ -113,6 +113,7 @@ int main (int argc, char *argv[])
     }
 
     log_init (LOG_TYPE_FILE, LOG_DEBUG, LOG_ROTATE_FALSE, 2 << 30, dir, PROGRESS_NAME, "log");
+    logi ("%s is starting ...", PROGRESS_NAME);
 
     // start main
     ret = thread_pool_init (MAX_THREAD);
