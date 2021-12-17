@@ -20,6 +20,7 @@ struct _DownloadData
 
 bool protocol_register ();
 void protocol_unregister ();
+GList* get_supported_schema ();
 GUri* url_Analysis (const char* url);
 static void* download (DownloadData* data);
 

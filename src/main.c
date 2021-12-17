@@ -297,8 +297,11 @@ static void* start_routine (void* data)
                         "\n"
                         "  -h\tThis information\n"
                         "  -v\tVersion information\n"
-                        "  -f\tSet the name of the downloaded file\n"
-                        "  -d\tSet the path for saving the downloaded file\n"
+                        "  -l\tList supported protocols\n"
+                        "  -f\tSet the name of the downloaded file,\n"
+                        "    \t<Note that this parameter only applies to the URI appended this time>\n"
+                        "  -d\tSet the path for saving the downloaded file,\n"
+                        "    \t<Note that this parameter only applies to the URI appended this time>\n"
                         "", PROGRESS_NAME);
 
     // version
@@ -311,10 +314,10 @@ static void* start_routine (void* data)
         logd ("get option >> c: %s -- s: %s", gMain->clientBuf, gMain->serverBuf);
 
         // parse command line
-        bool find = false;
         char* file = NULL;
         char* dir = NULL;
         GList* uris = NULL;
+        bool hasUri = false;
         GList* notSupportedUri = NULL;
         char** arr = g_strsplit (gMain->clientBuf, "|", -1);
         int len = g_strv_length (arr);
@@ -322,13 +325,25 @@ static void* start_routine (void* data)
         for (int i = 0; i < len; ++i) {
             if (arr[i] && g_str_has_prefix (arr[i], "-")) {
                 if (0 == g_ascii_strcasecmp ("-h", arr[i])) {
-                    find = true;
                     message_to_client (help);
-                    break;
+                    goto out;
                 } else if (0 == g_ascii_strcasecmp ("-v", arr[i])) {
-                    find = true;
                     message_to_client (version);
-                    break;
+                    goto out;
+                } else if (0 == g_ascii_strcasecmp ("-l", arr[i])) {
+                    GList* ll = get_supported_schema();
+                    g_autofree char* schemas = NULL;
+                    for (GList* l = ll; NULL != l; l = l->next) {
+                        g_autofree gchar* tmp = schemas;
+                        if (!schemas) {
+                            schemas = g_strdup (l->data);
+                        } else {
+                            schemas = g_strdup_printf ("%s\t%s", tmp, (char*) l->data);
+                        }
+                    }
+                    g_list_free_full (ll, g_free);
+                    message_to_client (schemas);
+                    goto out;
                 } else if (0 == g_ascii_strcasecmp ("-f", arr[i])) {
                     if (i + 1 < len) {
                         i += 1;
@@ -343,7 +358,7 @@ static void* start_routine (void* data)
                     continue;
                 }
             } else {
-                find = true;
+                hasUri = true;
                 GUri* uri = url_Analysis (arr[i]);
                 if (uri) {
                     uris = g_list_append (uris, uri);
@@ -355,7 +370,7 @@ static void* start_routine (void* data)
             }
         }
 
-        if (!find) {
+        if (!hasUri) {
             message_to_client (help);
         } else {
             // some uri not supported, tell client
@@ -400,6 +415,7 @@ static void* start_routine (void* data)
             }
         }
 
+out:
         sem_post (gMain->clientSem);
 
         if (arr) g_strfreev (arr);

@@ -22,8 +22,8 @@ bool protocol_register ()
     }
 
     g_hash_table_insert (gIpAndPortHash, "http", "80");
-    g_hash_table_insert (gIpAndPortHash, "https", "443");
-    g_hash_table_insert (gIpAndPortHash, "ftp", "21");
+//    g_hash_table_insert (gIpAndPortHash, "https", "443");
+//    g_hash_table_insert (gIpAndPortHash, "ftp", "21");
 
 
     return true;
@@ -86,4 +86,15 @@ void protocol_unregister ()
 void *download(DownloadData *data)
 {
     return NULL;
+}
+
+GList* get_supported_schema()
+{
+    GList* l = g_hash_table_get_keys (gIpAndPortHash);
+
+    GList* r = g_list_copy_deep (l, (void*) g_strdup, NULL);
+
+    g_list_free (l);
+
+    return r;
 }
