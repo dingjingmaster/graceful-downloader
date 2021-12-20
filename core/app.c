@@ -94,7 +94,7 @@ App *app_new (Conf *conf, int count, const Search *res)
         return app;
     }
 
-    app->conn[0].local_if = app->conf->interfaces->text;
+    app->conn[0].localIf = app->conf->interfaces->text;
     app->conf->interfaces = app->conf->interfaces->next;
 
     gf_strlcpy(app->filename, app->conn[0].file, sizeof(app->filename));
@@ -155,8 +155,8 @@ App *app_new (Conf *conf, int count, const Search *res)
         gf_strlcpy(app->filename, app->conn[0].file,
             sizeof(app->filename));
 
-    if (*app->conn[0].output_filename != 0) {
-        gf_strlcpy(app->filename, app->conn[0].output_filename, sizeof(app->filename));
+    if (*app->conn[0].outputFilename != 0) {
+        gf_strlcpy(app->filename, app->conn[0].outputFilename, sizeof(app->filename));
     }
 
     return app;
@@ -300,7 +300,7 @@ void app_start(App *app)
     for (i = 0; i < app->conf->num_connections; ++i) {
         conn_set (&app->conn[i], urlPtr->text);
         urlPtr = urlPtr->next;
-        app->conn[i].local_if = app->conf->interfaces->text;
+        app->conn[i].localIf = app->conf->interfaces->text;
         app->conf->interfaces = app->conf->interfaces->next;
         app->conn[i].conf = app->conf;
         if (i) {
@@ -320,11 +320,11 @@ void app_start(App *app)
         } else if (app->conn[i].currentbyte < app->conn[i].lastbyte) {
             if (app->conf->verbose >= 2) {
                 app_message(app, "Connection %i downloading from %s:%i using interface %s",
-                    i, app->conn[i].host, app->conn[i].port, app->conn[i].local_if);
+                    i, app->conn[i].host, app->conn[i].port, app->conn[i].localIf);
             }
 
             app->conn[i].state = true;
-            if (pthread_create (app->conn[i].setup_thread, NULL, setup_thread, &app->conn[i]) != 0) {
+            if (pthread_create (app->conn[i].setupThread, NULL, setup_thread, &app->conn[i]) != 0) {
                 app_message(app, "pthread error!!!");
                 app->ready = -1;
             }
@@ -397,7 +397,7 @@ void app_do (App *app)
             goto next_conn;
 
         if (!FD_ISSET(app->conn[i].tcp->fd, fds)) {
-            time_t timeout = app->conn[i].last_transfer + app->conf->connection_timeout;
+            time_t timeout = app->conn[i].lastTransfer + app->conf->connection_timeout;
             if (app_gettime() > timeout) {
                 if (app->conf->verbose) {
                     app_message (app, "Connection %i timed out", i);
@@ -407,7 +407,7 @@ void app_do (App *app)
             goto next_conn;
         }
 
-        app->conn[i].last_transfer = app_gettime();
+        app->conn[i].lastTransfer = app_gettime();
         size = tcp_read(app->conn[i].tcp, buffer, app->conf->buffer_size);
         if (size == -1) {
             if (app->conf->verbose) {
@@ -481,7 +481,7 @@ conn_check:
         if (!app->conn[i].enabled && app->conn[i].currentbyte < app->conn[i].lastbyte) {
             if (!app->conn[i].state) {
                 // Wait for termination of this thread
-                pthread_join(*(app->conn[i].setup_thread), NULL);
+                pthread_join(*(app->conn[i].setupThread), NULL);
 
                 conn_set(&app->conn[i], url_ptr->text);
                 url_ptr = url_ptr->next;
@@ -492,23 +492,23 @@ conn_check:
                         "Connection %i downloading from %s:%i using interface %s",
                         i, app->conn[i].host,
                         app->conn[i].port,
-                        app->conn[i].local_if);
+                        app->conn[i].localIf);
 
                 app->conn[i].state = true;
                 if (pthread_create
-                    (app->conn[i].setup_thread, NULL,
+                    (app->conn[i].setupThread, NULL,
                         setup_thread, &app->conn[i]) == 0) {
-                    app->conn[i].last_transfer = app_gettime();
+                    app->conn[i].lastTransfer = app_gettime();
                 } else {
                     app_message(app, "pthread error!!!");
                     app->ready = -1;
                 }
             } else {
-                if (app_gettime() > (app->conn[i].last_transfer +
+                if (app_gettime() > (app->conn[i].lastTransfer +
                         app->conf->reconnect_delay)) {
-                    pthread_cancel(*app->conn[i].setup_thread);
+                    pthread_cancel(*app->conn[i].setupThread);
                     app->conn[i].state = false;
-                    pthread_join(*app->conn[i].setup_thread, NULL);
+                    pthread_join(*app->conn[i].setupThread, NULL);
                 }
             }
         }
@@ -570,9 +570,9 @@ void app_close(App *app)
     /* Terminate threads and close connections */
     for (int i = 0; i < app->conf->num_connections; i++) {
         /* don't try to kill non existing thread */
-        if (*app->conn[i].setup_thread != 0) {
-            pthread_cancel(*app->conn[i].setup_thread);
-            pthread_join(*app->conn[i].setup_thread, NULL);
+        if (*app->conn[i].setupThread != 0) {
+            pthread_cancel(*app->conn[i].setupThread);
+            pthread_join(*app->conn[i].setupThread, NULL);
         }
         conn_disconnect(&app->conn[i]);
     }
@@ -770,9 +770,9 @@ static void* setup_thread (void *c)
 
     pthread_mutex_lock(&conn->lock);
     if (conn_setup(conn)) {
-        conn->last_transfer = app_gettime();
+        conn->lastTransfer = app_gettime();
         if (conn_exec(conn)) {
-            conn->last_transfer = app_gettime();
+            conn->lastTransfer = app_gettime();
             conn->enabled = true;
             goto out;
         }

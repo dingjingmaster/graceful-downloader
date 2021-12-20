@@ -210,9 +210,9 @@ int conn_init (Conn *conn)
     conn->proxy = proxy != NULL;
 
     if (PROTO_IS_FTP(conn->proto) && !conn->proxy) {
-        conn->ftp->local_if = conn->local_if;
+        conn->ftp->local_if = conn->localIf;
         conn->ftp->ftp_mode = FTP_PASSIVE;
-        conn->ftp->tcp.ai_family = conn->conf->ai_family;
+        conn->ftp->tcp.aiFamily = conn->conf->ai_family;
         if (!ftp_connect(conn->ftp, conn->proto, conn->host, conn->port,
                 conn->user, conn->pass, conn->conf->io_timeout)) {
             conn->message = conn->ftp->message;
@@ -227,8 +227,8 @@ int conn_init (Conn *conn)
             return 0;
         }
     } else {
-        conn->http->local_if = conn->local_if;
-        conn->http->tcp.ai_family = conn->conf->ai_family;
+        conn->http->local_if = conn->localIf;
+        conn->http->tcp.aiFamily = conn->conf->ai_family;
         if (!http_connect(conn->http, conn->proto, proxy, conn->host,
                 conn->port, conn->user, conn->pass,
                 conn->conf->io_timeout)) {
@@ -358,7 +358,7 @@ int conn_info(Conn* conn)
         conn_exec(conn);
         conn_disconnect(conn);
 
-        http_filename(conn->http, conn->output_filename);
+        http_filename(conn->http, conn->outputFilename);
 
         /* Code 3xx == redirect */
         if (conn->http->status / 100 != 3) {

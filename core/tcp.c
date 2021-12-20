@@ -21,9 +21,12 @@
 #include <netinet/tcp.h>
 #include <netinet/in_systm.h>
 
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
 #include "log.h"
-#include "config.h"
 #include "utils.h"
+#include "config.h"
 
 #ifndef TCP_FASTOPEN_CONNECT
 #ifdef __linux__
@@ -33,82 +36,89 @@
 #endif /* __linux__ */
 #endif
 
-/*
- * Check if the given hostname is ipv6 literal
- * Returns 1 if true and 0 if false
- */
-int is_ipv6_addr (const char *hostname)
-{
-    char buf[16] = {0}; /* Max buff size needed for inet_pton() */
+inline static void tcp_error(char *hostname, int port, const char *reason);
 
-    return hostname && 1 == inet_pton(AF_INET6, hostname, buf);
+
+void tcp_close (Tcp* tcp)
+{
+    if (tcp->fd > 0) {
+        if (tcp->secure) {
+            SSL_shutdown (tcp->ssl);
+            SSL_free (tcp->ssl);
+
+            close (tcp->fd);
+
+            SSL_CTX_free (tcp->sslCtx);
+        } else {
+            close (tcp->fd);
+        }
+
+        tcp->fd = -1;
+    }
 }
 
-inline static void tcp_error(char *hostname, int port, const char *reason)
-{
-    loge ("Unable to connect to server %s:%i: %s\n", hostname, port, reason);
-}
 
 /* Get a TCP connection */
-int tcp_connect (Tcp* tcp, char *hostname, int port, int secure, char *local_if, unsigned io_timeout)
+int tcp_connect (Tcp* tcp, char *hostname, int port, bool secure, char *localIf, unsigned ioTimeout)
 {
-    struct sockaddr_in local_addr;
+    struct sockaddr_in localAddr;
     char portstr[10] = {0};
-    struct addrinfo ai_hints;
-    struct addrinfo* gai_results, *gai_result;
+    struct addrinfo aiHints;
+    struct addrinfo* gairesults, *gairesult;
     int ret;
-    int sock_fd = -1;
+    int sockfd = -1;
 
-    memset (&local_addr, 0, sizeof(local_addr));
-    if  (local_if) {
-        if (!*local_if || tcp->ai_family != AF_INET) {
-            local_if = NULL;
+    tcp->secure = secure;
+
+    memset (&localAddr, 0, sizeof(localAddr));
+    if  (localIf) {
+        if (!*localIf || tcp->aiFamily != AF_INET) {
+            localIf = NULL;
         } else {
-            local_addr.sin_family = AF_INET;
-            local_addr.sin_port = 0;
-            local_addr.sin_addr.s_addr = inet_addr (local_if);
+            localAddr.sin_family = AF_INET;
+            localAddr.sin_port = 0;
+            localAddr.sin_addr.s_addr = inet_addr (localIf);
         }
     }
 
     snprintf (portstr, sizeof (portstr), "%d", port);
 
-    memset (&ai_hints, 0, sizeof (ai_hints));
-    ai_hints.ai_family = tcp->ai_family;
-    ai_hints.ai_socktype = SOCK_STREAM;
-    ai_hints.ai_flags = AI_ADDRCONFIG;
-    ai_hints.ai_protocol = 0;
+    memset (&aiHints, 0, sizeof (aiHints));
+    aiHints.ai_family = tcp->aiFamily;
+    aiHints.ai_socktype = SOCK_STREAM;
+    aiHints.ai_flags = AI_ADDRCONFIG;
+    aiHints.ai_protocol = 0;
 
-    ret = getaddrinfo (hostname, portstr, &ai_hints, &gai_results);
+    ret = getaddrinfo (hostname, portstr, &aiHints, &gairesults);
     if (ret != 0) {
         tcp_error (hostname, port, gai_strerror(ret));
         return -1;
     }
 
-    gai_result = gai_results;
+    gairesult = gairesults;
     do {
         int tcp_fastopen = -1;
 
-        if (sock_fd != -1) {
-            close (sock_fd);
-            sock_fd = -1;
+        if (sockfd != -1) {
+            close (sockfd);
         }
 
-        sock_fd = socket (gai_result->ai_family, gai_result->ai_socktype, gai_result->ai_protocol);
-        if (sock_fd == -1) {
+        sockfd = socket (gairesult->ai_family, gairesult->ai_socktype, gairesult->ai_protocol);
+        if (sockfd == -1) {
             continue;
         }
 
-        if (local_if && gai_result->ai_family == AF_INET) {
-            bind (sock_fd, (struct sockaddr *) &local_addr, sizeof(local_addr));
+        if (localIf && gairesult->ai_family == AF_INET) {
+            bind (sockfd, (struct sockaddr *) &localAddr, sizeof(localAddr));
         }
 
         if (TCP_FASTOPEN_CONNECT) {
-            tcp_fastopen = setsockopt (sock_fd, IPPROTO_TCP, TCP_FASTOPEN_CONNECT, NULL, 0);
-        } else if (io_timeout) {
+            tcp_fastopen = setsockopt (sockfd, IPPROTO_TCP, TCP_FASTOPEN_CONNECT, NULL, 0);
+        } else if (ioTimeout) {
             /* Set O_NONBLOCK so we can timeout */
-            fcntl (sock_fd, F_SETFL, O_NONBLOCK);
+            fcntl (sockfd, F_SETFL, O_NONBLOCK);
         }
-        ret = connect (sock_fd, gai_result->ai_addr, gai_result->ai_addrlen);
+        ret = connect (sockfd, gairesult->ai_addr, gairesult->ai_addrlen);
 
         /* Already connected maybe? */
         if (ret != -1) {
@@ -127,79 +137,83 @@ int tcp_connect (Tcp* tcp, char *hostname, int port, int secure, char *local_if,
         /* Wait for the connection */
         fd_set fdset;
         FD_ZERO (&fdset);
-        FD_SET (sock_fd, &fdset);
-        struct timeval tout = { .tv_sec  = io_timeout };
-        ret = select (sock_fd + 1, NULL, &fdset, NULL, &tout);
+        FD_SET (sockfd, &fdset);
+        struct timeval tout = { .tv_sec  = ioTimeout };
+        ret = select (sockfd + 1, NULL, &fdset, NULL, &tout);
 
         /* Success? */
         if (ret != -1) {
             break;
         }
-    } while ((gai_result = gai_result->ai_next));
+    } while ((gairesult = gairesult->ai_next));
 
-    freeaddrinfo(gai_results);
+    freeaddrinfo(gairesults);
 
-    if (sock_fd == -1) {
+    if (sockfd == -1) {
         tcp_error (hostname, port, strerror(errno));
         return -1;
     }
 
-    fcntl(sock_fd, F_SETFL, 0);
+    fcntl(sockfd, F_SETFL, 0);
 
-#ifdef HAVE_SSL
-    if (secure) {
-        tcp->ssl = ssl_connect (sock_fd, hostname);
-        if (tcp->ssl == NULL) {
-            close(sock_fd);
+    if (tcp->secure) {
+        SSL_library_init ();
+        OpenSSL_add_all_algorithms();
+        SSL_load_error_strings();
+        tcp->sslCtx = SSL_CTX_new (SSLv23_client_method());
+        if (NULL == tcp->sslCtx) {
+            tcp_error (hostname, port, "SSL_CTX_new error");
+            return -1;
+        }
+
+        tcp->ssl = SSL_new (tcp->sslCtx);
+
+        SSL_set_fd (tcp->ssl, sockfd);
+
+        if (-1 == SSL_connect (tcp->ssl)) {
+            tcp_error (hostname, port, "SSL_connect error");
             return -1;
         }
     }
-#endif /* HAVE_SSL */
-    tcp->fd = sock_fd;
+    tcp->fd = sockfd;
 
     /* Set I/O timeout */
-    struct timeval tout = { .tv_sec  = io_timeout };
-    setsockopt (sock_fd, SOL_SOCKET, SO_RCVTIMEO, &tout, sizeof(tout));
-    setsockopt (sock_fd, SOL_SOCKET, SO_SNDTIMEO, &tout, sizeof(tout));
+    struct timeval tout = { .tv_sec  = ioTimeout };
+    setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, &tout, sizeof(tout));
+    setsockopt (sockfd, SOL_SOCKET, SO_SNDTIMEO, &tout, sizeof(tout));
 
     return 1;
 }
 
+
 ssize_t tcp_read (Tcp *tcp, void *buffer, int size)
 {
-#ifdef HAVE_SSL
-    if (tcp->ssl != NULL) {
-        return SSL_read (tcp->ssl, buffer, size);
-    }
-#endif
-
-    return read (tcp->fd, buffer, size);
+    return (tcp->secure ? SSL_read (tcp->ssl, buffer, size) : read (tcp->fd, buffer, size));
 }
+
 
 ssize_t tcp_write (Tcp *tcp, void *buffer, int size)
 {
-#ifdef HAVE_SSL
-    if (tcp->ssl != NULL) {
-        return SSL_write (tcp->ssl, buffer, size);
-    }
-#endif
-
-    return write (tcp->fd, buffer, size);
+    return (tcp->secure ? SSL_write (tcp->ssl, buffer, size) : write (tcp->fd, buffer, size));
 }
 
-void tcp_close (Tcp* tcp)
+
+/**
+ * Check if the given hostname is ipv6 literal
+ * Returns 1 if true and 0 if false
+ */
+int is_ipv6_addr (const char *hostname)
 {
-    if (tcp->fd > 0) {
-#ifdef HAVE_SSL
-        if (tcp->ssl != NULL) {
-            ssl_disconnect (tcp->ssl);
-            tcp->ssl = NULL;
-        }
-#endif
-        close (tcp->fd);
-        tcp->fd = -1;
-    }
+    char buf[16] = {0}; /* Max buff size needed for inet_pton() */
+
+    return hostname && 1 == inet_pton(AF_INET6, hostname, buf);
 }
+
+inline static void tcp_error (char *hostname, int port, const char *reason)
+{
+    loge ("Unable to connect to server %s:%i: %s", hostname, port, reason);
+}
+
 
 int get_if_ip (char *dst, size_t len, const char *iface)
 {

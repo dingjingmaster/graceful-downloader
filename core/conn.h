@@ -41,11 +41,11 @@ struct _Conn
     int                 port;
     int                 proxy;
     char                host[MAX_STRING];
-    char                dir[MAX_STRING];
+    char                dir [MAX_STRING];
     char                file[MAX_STRING];
     char                user[MAX_STRING];
     char                pass[MAX_STRING];
-    char                output_filename[MAX_STRING];
+    char                outputFilename[MAX_STRING];
 
     Ftp                 ftp[1];
     Http                http[1];
@@ -55,12 +55,12 @@ struct _Conn
     Tcp*                tcp;
     bool                enabled;
     bool                supported;
-    int                 last_transfer;
+    int                 lastTransfer;
     char*               message;
-    char*               local_if;
+    char*               localIf;
 
     bool                state;
-    pthread_t           setup_thread[1];
+    pthread_t           setupThread[1];
     pthread_mutex_t     lock;
 };
 
