@@ -8,9 +8,9 @@ typedef struct _Downloader          Downloader;
 typedef struct _DownloadData        DownloadData;
 typedef struct _DownloadMethod      DownloadMethod;
 
-typedef bool (*Init)    (Downloader* data);
-typedef bool (*Run)     (Downloader* data);
-typedef void (*Free)    (Downloader* data);
+typedef bool (*Init)        (Downloader* data);
+typedef bool (*Download)    (Downloader* data);
+typedef void (*Free)        (Downloader* data);
 
 struct _DownloadData
 {
@@ -21,12 +21,13 @@ struct _DownloadData
     /**
      * @TODO read and write lock for progress
      */
+    void*                   data;
 };
 
 struct _DownloadMethod
 {
     Init                    init;
-    Run                     run;
+    Download                download;
     Free                    free;
 };
 

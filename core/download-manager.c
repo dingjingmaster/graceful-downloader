@@ -9,6 +9,8 @@
 static GHashTable* gIpAndPortHash = NULL;
 static GHashTable* gHostAndUserInfo = NULL;
 
+void* download_worker (Downloader* d);
+
 
 bool protocol_register ()
 {
@@ -102,6 +104,8 @@ void download (const DownloadTask *data)
     for (GList* l = data->uris; NULL != l; l = l->next) {
         g_autofree gchar* name = NULL;
 
+        if (NULL == l->data)    continue;
+
         const char* path = g_uri_get_path ((GUri*) (l->data));
         if (path) {
             // name
@@ -134,9 +138,32 @@ void download (const DownloadTask *data)
         if (l->data)        data1->uri = g_uri_ref (l->data);
         if (name)           data1->outputName = g_strdup (name);
 
+        // use default directory
+        if (!data1->outputDir) {
+            data1->outputDir = g_strdup (g_get_user_special_dir (G_USER_DIRECTORY_DOWNLOAD));
+        }
+
+        // use default name
+        if (!data1->outputName) {
+            g_autofree char* turi = g_uri_to_string (l->data);
+            g_autofree char* ppath = g_base64_encode ((void*) turi, strlen(turi));
+            data1->outputName = g_strdup (ppath);
+        }
+
         dd->data = data1;
 
-        // FIXME:// method
-        thread_pool_add_work (NULL, dd);
+        thread_pool_add_work ((void*) download_worker, dd);
     }
+}
+
+
+void* download_worker (Downloader* d)
+{
+    g_return_val_if_fail (d && d->data /*&& d->method*/, NULL);
+
+    g_autofree char* uri = g_uri_to_string (d->data->uri);
+
+    logd ("start download, uri: %s, save to: %s/%s", uri, d->data->outputDir, d->data->outputName);
+
+    return NULL;
 }

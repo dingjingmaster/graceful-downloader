@@ -9,19 +9,35 @@ typedef struct _Http    Http;
 
 struct _Http
 {
-    char host[MAX_STRING];
-    char auth[MAX_STRING];
-    Abuf request[1], headers[1];
-    int port;
-    int proto;		/* FTP through HTTP proxies */
-    int proxy;
-    char proxy_auth[MAX_STRING];
-    off_t firstbyte;
-    off_t lastbyte;
-    int status;
-    Tcp tcp;
-    char *local_if;
+    char            host[MAX_STRING];
+    char            auth[MAX_STRING];
+    Abuf            request[1], headers[1];
+    int             port;
+    int             proto;		/* FTP through HTTP proxies */
+    int             proxy;
+    char            proxy_auth[MAX_STRING];
+    off_t           firstbyte;
+    off_t           lastbyte;
+    int             status;
+    Tcp             tcp;
+    char            *local_if;
 };
+
+
+/**
+ * @brief 实现 http 初始化
+ */
+//typedef bool (*Init)        (Downloader* data);
+//typedef bool (*Download)    (Downloader* data);
+//typedef void (*Free)        (Downloader* data);
+
+
+
+
+
+
+
+
 
 int http_connect (Http* conn, int proto, char *proxy, char *host, int port, char *user, char *pass, unsigned io_timeout);
 void http_disconnect (Http* conn);

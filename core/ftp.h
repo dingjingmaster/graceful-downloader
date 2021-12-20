@@ -9,14 +9,14 @@
 
 struct _Ftp
 {
-    char cwd[MAX_STRING];
-    char *message;
-    int status;
-    Tcp tcp;
-    Tcp data_tcp;
-    int proto;
-    int ftp_mode;
-    char *local_if;
+    char            cwd[MAX_STRING];
+    char            *message;
+    int             status;
+    Tcp             tcp;
+    Tcp             data_tcp;
+    int             proto;
+    int             ftp_mode;
+    char            *local_if;
 };
 
 int ftp_connect (Ftp* conn, int proto, char *host, int port, char *user, char *pass, unsigned io_timeout);

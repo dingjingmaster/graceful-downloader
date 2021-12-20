@@ -10,6 +10,9 @@
 
 #define HDR_CHUNK 512
 
+typedef struct _HttpData            HttpData;
+
+
 
 inline static int is_default_port (int proto, int port)
 {
