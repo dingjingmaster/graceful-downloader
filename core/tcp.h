@@ -37,7 +37,7 @@ void    tcp_close       (Tcp* tcp);
  *
  * @return 成功返回 0， 失败返回 -1
  */
-int     tcp_connect     (Tcp* tcp, char* hostname, int port, bool secure, char *localIf, unsigned ioTimeout);
+int     tcp_connect     (Tcp* tcp, const char* hostname, int port, bool secure, const char *localIf, unsigned ioTimeout);
 
 /**
  * @brief 从 socket 读取数据

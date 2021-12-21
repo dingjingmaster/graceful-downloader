@@ -5,8 +5,11 @@
 #include "log.h"
 #include "thread-pool.h"
 
+#include "http.h"
 
-static GHashTable* gIpAndPortHash = NULL;
+
+static GHashTable* gSchemaAndPortHash = NULL;
+static GHashTable* gSchemaAndDownloader = NULL;
 static GHashTable* gHostAndUserInfo = NULL;
 
 void* download_worker (Downloader* d);
@@ -14,22 +17,37 @@ void* download_worker (Downloader* d);
 
 bool protocol_register ()
 {
-    if (!gIpAndPortHash) {
-        gIpAndPortHash = g_hash_table_new (g_str_hash, g_str_equal);
+    if (!gSchemaAndPortHash) {
+        gSchemaAndPortHash = g_hash_table_new (g_str_hash, g_str_equal);
     }
 
-    g_return_val_if_fail (gIpAndPortHash, false);
+    g_return_val_if_fail (gSchemaAndPortHash, false);
 
     if (!gHostAndUserInfo) {
         gHostAndUserInfo = g_hash_table_new (g_str_hash, g_str_equal);
     }
+    g_return_val_if_fail (gHostAndUserInfo, false);
 
-    g_hash_table_insert (gIpAndPortHash, "http", "80");
-//    g_hash_table_insert (gIpAndPortHash, "https", "443");
-//    g_hash_table_insert (gIpAndPortHash, "ftp", "21");
+    if (!gSchemaAndDownloader) {
+        gSchemaAndDownloader = g_hash_table_new (g_str_hash, (void*) g_direct_hash);
+    }
+    g_return_val_if_fail (gSchemaAndDownloader, false);
+
+    // schema and port
+    g_hash_table_insert (gSchemaAndPortHash, "http", "80");
+    g_hash_table_insert (gSchemaAndPortHash, "https", "443");
+//    g_hash_table_insert (gSchemaAndPortHash, "ftp", "21");
+
+    // schema and downloader
 
 
     return true;
+}
+
+void protocol_unregister ()
+{
+    if (gSchemaAndPortHash) g_hash_table_unref (gSchemaAndPortHash);
+    if (gHostAndUserInfo)   g_hash_table_unref (gHostAndUserInfo);
 }
 
 GUri* url_Analysis (const char* url)
@@ -37,7 +55,7 @@ GUri* url_Analysis (const char* url)
     g_return_val_if_fail (url, NULL);
     logd ("get uri: %s", url);
 
-    g_return_val_if_fail (gIpAndPortHash, NULL);
+    g_return_val_if_fail (gSchemaAndPortHash, NULL);
 
     char** arr = g_strsplit (url, "://", -1);
     int len = g_strv_length (arr);
@@ -58,7 +76,7 @@ GUri* url_Analysis (const char* url)
     case 2: {
         char* schema = arr[0];
         // check schema is supported
-        if (g_hash_table_contains (gIpAndPortHash, schema)) {
+        if (g_hash_table_contains (gSchemaAndPortHash, schema)) {
             logd ("'%s' find schema '%s'", url, schema);
             uri = g_uri_parse (url, G_URI_FLAGS_NONE, &error);
             if (error) {
@@ -80,15 +98,9 @@ out:
     return uri ? g_uri_ref (uri) : NULL;
 }
 
-void protocol_unregister ()
-{
-    if (gIpAndPortHash)     g_hash_table_unref (gIpAndPortHash);
-    if (gHostAndUserInfo)   g_hash_table_unref (gHostAndUserInfo);
-}
-
 GList* get_supported_schema ()
 {
-    GList* l = g_hash_table_get_keys (gIpAndPortHash);
+    GList* l = g_hash_table_get_keys (gSchemaAndPortHash);
 
     GList* r = g_list_copy_deep (l, (void*) g_strdup, NULL);
 
@@ -156,7 +168,6 @@ void download (const DownloadTask *data)
     }
 }
 
-
 void* download_worker (Downloader* d)
 {
     g_return_val_if_fail (d && d->data /*&& d->method*/, NULL);
@@ -164,6 +175,12 @@ void* download_worker (Downloader* d)
     g_autofree char* uri = g_uri_to_string (d->data->uri);
 
     logd ("start download, uri: %s, save to: %s/%s", uri, d->data->outputDir, d->data->outputName);
+
+    ////////////////////////////////////////////
+    // test
+    http_init (d->data);
+
+    http_download (d->data);
 
     return NULL;
 }

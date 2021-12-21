@@ -8,9 +8,9 @@ typedef struct _Downloader          Downloader;
 typedef struct _DownloadData        DownloadData;
 typedef struct _DownloadMethod      DownloadMethod;
 
-typedef bool (*Init)        (Downloader* data);
-typedef bool (*Download)    (Downloader* data);
-typedef void (*Free)        (Downloader* data);
+typedef bool (*Init)        (DownloadData* data);
+typedef bool (*Download)    (DownloadData* data);
+typedef void (*Free)        (DownloadData* data);
 
 struct _DownloadData
 {

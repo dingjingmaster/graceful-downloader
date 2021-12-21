@@ -227,7 +227,7 @@ int conn_init (Conn *conn)
             return 0;
         }
     } else {
-        conn->http->local_if = conn->localIf;
+        conn->http->localIf = conn->localIf;
         conn->http->tcp.aiFamily = conn->conf->ai_family;
         if (!http_connect(conn->http, conn->proto, proxy, conn->host,
                 conn->port, conn->user, conn->pass,

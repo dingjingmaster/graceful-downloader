@@ -36,7 +36,7 @@
 #endif /* __linux__ */
 #endif
 
-inline static void tcp_error(char *hostname, int port, const char *reason);
+inline static void tcp_error(const char *hostname, int port, const char *reason);
 
 
 void tcp_close (Tcp* tcp)
@@ -59,7 +59,7 @@ void tcp_close (Tcp* tcp)
 
 
 /* Get a TCP connection */
-int tcp_connect (Tcp* tcp, char *hostname, int port, bool secure, char *localIf, unsigned ioTimeout)
+int tcp_connect (Tcp* tcp, const char *hostname, int port, bool secure, const char *localIf, unsigned ioTimeout)
 {
     struct sockaddr_in localAddr;
     char portstr[10] = {0};
@@ -209,7 +209,7 @@ int is_ipv6_addr (const char *hostname)
     return hostname && 1 == inet_pton(AF_INET6, hostname, buf);
 }
 
-inline static void tcp_error (char *hostname, int port, const char *reason)
+inline static void tcp_error (const char *hostname, int port, const char *reason)
 {
     loge ("Unable to connect to server %s:%i: %s", hostname, port, reason);
 }

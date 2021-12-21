@@ -10,8 +10,6 @@
 
 #define HDR_CHUNK 512
 
-typedef struct _HttpData            HttpData;
-
 
 
 inline static int is_default_port (int proto, int port)
@@ -61,93 +59,93 @@ static void http_auth_token (char *token, const char *user, const char *pass)
     }
 }
 
-int http_connect (Http *conn, int proto, char *proxy, char *host, int port, char *user, char *pass, unsigned io_timeout)
+int http_connect (Http* http, int proto, const char *proxy, const char *host, int port, const char *user, const char *pass, unsigned ioTimeout)
 {
     const char *puser = NULL, *ppass = "";
-    Conn tconn[1];
+//    Conn tconn[1];
 
-    gf_strlcpy(conn->host, host, sizeof(conn->host));
-    conn->port = port;
-    conn->proto = proto;
+    gf_strlcpy(http->host, host, sizeof(http->host));
+    http->port = port;
+    http->proto = proto;
 
-    if (proxy && *proxy) {
-        if (!conn_set(tconn, proxy)) {
-            loge ("Invalid proxy string: %s", proxy);
-            return 0;
-        }
-        host = tconn->host;
-        port = tconn->port;
-        proto = tconn->proto;
-        puser = tconn->user;
-        ppass = tconn->pass;
-        conn->proxy = 1;
-    }
+//    if (proxy && *proxy) {
+//        if (!conn_set(tconn, proxy)) {
+//            loge ("Invalid proxy string: %s", proxy);
+//            return 0;
+//        }
+//        host = tconn->host;
+//        port = tconn->port;
+//        proto = tconn->proto;
+//        puser = tconn->user;
+//        ppass = tconn->pass;
+//        http->proxy = 1;
+//    }
 
-    if (tcp_connect(&conn->tcp, host, port, PROTO_IS_SECURE(proto),
-            conn->local_if, io_timeout) == -1)
+    if (tcp_connect(&http->tcp, host, port, PROTO_IS_SECURE(proto), http->localIf, ioTimeout) == -1)
         return 0;
 
-    if (*user == 0) {
-        *conn->auth = 0;
+    if (NULL == user) {
+        *http->auth = 0;
     } else {
-        http_auth_token(conn->auth, user, pass);
+        http_auth_token(http->auth, user, pass);
     }
 
-    if (!conn->proxy || !puser || *puser == 0) {
-        *conn->proxy_auth = 0;
+    if (!http->proxy || !puser || *puser == 0) {
+        *http->proxy_auth = 0;
     } else {
-        http_auth_token(conn->proxy_auth, puser, ppass);
+        http_auth_token(http->proxy_auth, puser, ppass);
     }
 
     return 1;
 }
 
-void http_disconnect(Http *conn)
+void http_disconnect(Http *http)
 {
-    tcp_close(&conn->tcp);
+    tcp_close(&http->tcp);
 }
 
-void http_get(Http *conn, char *lurl)
+void http_get(Http *http, const char *lurl)
 {
     const char *prefix = "", *postfix = "";
 
        // If host is ipv6 literal add square brackets
-    if (is_ipv6_addr(conn->host)) {
+    if (is_ipv6_addr(http->host)) {
         prefix = "[";
         postfix = "]";
     }
 
-    *conn->request->p = 0;
-    if (conn->proxy) {
-        const char *proto = scheme_from_proto(conn->proto);
-        if (is_default_port(conn->proto, conn->port)) {
-            http_addheader(conn, "GET %s%s%s%s%s HTTP/1.0", proto, prefix, conn->host, postfix, lurl);
+    *http->request->p = 0;
+    if (http->proxy) {
+        const char *proto = scheme_from_proto(http->proto);
+        if (is_default_port(http->proto, http->port)) {
+            http_addheader(http, "GET %s%s%s%s%s HTTP/1.0", proto, prefix, http->host, postfix, lurl);
         } else {
-            http_addheader(conn, "GET %s%s%s%s:%i%s HTTP/1.0", proto, prefix, conn->host, postfix, conn->port, lurl);
+            http_addheader(http, "GET %s%s%s%s:%i%s HTTP/1.0", proto, prefix, http->host, postfix, http->port, lurl);
         }
     } else {
-        http_addheader(conn, "GET %s HTTP/1.0", lurl);
-        if (is_default_port(conn->proto, conn->port)) {
-            http_addheader(conn, "Host: %s%s%s", prefix, conn->host, postfix);
+        http_addheader (http, "GET %s HTTP/1.0", lurl);
+        if (is_default_port (http->proto, http->port)) {
+            http_addheader(http, "Host: %s%s%s", prefix, http->host, postfix);
         } else {
-            http_addheader(conn, "Host: %s%s%s:%i", prefix, conn->host, postfix, conn->port);
+            http_addheader(http, "Host: %s%s%s:%i", prefix, http->host, postfix, http->port);
         }
     }
-    if (*conn->auth) {
-        http_addheader(conn, "Authorization: Basic %s", conn->auth);
+    if (*http->auth) {
+        http_addheader(http, "Authorization: Basic %s", http->auth);
     }
 
-    if (*conn->proxy_auth) {
-        http_addheader(conn, "Proxy-Authorization: Basic %s", conn->proxy_auth);
+    if (*http->proxy_auth) {
+        http_addheader(http, "Proxy-Authorization: Basic %s", http->proxy_auth);
     }
 
-    http_addheader(conn, "Accept: */*");
-    http_addheader(conn, "Accept-Encoding: identity");
+    http_addheader(http, "Accept: */*");
+    http_addheader(http, "Accept-Encoding: identity");
 
-    if (conn->lastbyte && conn->firstbyte >= 0) {
-        http_addheader(conn, "Range: bytes=%jd-%jd", conn->firstbyte, conn->lastbyte - 1);
-    } else if (conn->firstbyte >= 0) {
-        http_addheader(conn, "Range: bytes=%jd-", conn->firstbyte);
+    // 此处可以打开多线程下载
+    if (http->lastbyte && http->firstbyte >= 0) {
+        http_addheader(http, "Range: bytes=%jd-%jd", http->firstbyte, http->lastbyte - 1);
+    } else if (http->firstbyte >= 0) {
+        http_addheader(http, "Range: bytes=%jd-", http->firstbyte);
     }
 }
 
@@ -166,24 +164,23 @@ void http_addheader(Http *conn, const char *format, ...)
     }
 }
 
-int http_exec(Http *conn)
+int http_exec(Http *http)
 {
     char *s2;
 
-    logd ("--- Sending request ---\n%s\n--- End of request ---\n", conn->request->p);
+    logd ("\n--- Sending request ---\n%s\n--- End of request ---\n", http->request->p);
 
-    gf_strlcat(conn->request->p, "\r\n", conn->request->len);
+    gf_strlcat(http->request->p, "\r\n", http->request->len);
 
-    const size_t reqlen = strlen(conn->request->p);
+    const size_t reqlen = strlen(http->request->p);
     size_t nwrite = 0;
     while (nwrite < reqlen) {
         ssize_t tmp;
-        tmp = tcp_write(&conn->tcp, conn->request->p + nwrite, reqlen - nwrite);
+        tmp = tcp_write(&http->tcp, http->request->p + nwrite, reqlen - nwrite);
         if (tmp < 0) {
             if (errno == EINTR || errno == EAGAIN) {
                 continue;
             }
-
             loge ("Connection gone while writing.");
 
             return 0;
@@ -191,21 +188,19 @@ int http_exec(Http *conn)
         nwrite += tmp;
     }
 
-    *conn->headers->p = 0;
+    *http->headers->p = 0;
 
-    /* Read the headers byte by byte to make sure we don't touch the
-       actual data */
-    for (char *s = conn->headers->p;;) {
-        if (tcp_read(&conn->tcp, s, 1) <= 0) {
+    // Read the headers byte by byte to make sure we don't touch the actual data
+    for (char *s = http->headers->p;;) {
+        if (tcp_read(&http->tcp, s, 1) <= 0) {
             loge ("Connection gone.");
-
             return 0;
         }
 
         if (*s == '\r') {
             continue;
         } else if (*s == '\n') {
-            if (s > conn->headers->p && s[-1] == '\n') {
+            if (s > http->headers->p && s[-1] == '\n') {
                 *s = 0;
                 break;
             }
@@ -213,34 +208,36 @@ int http_exec(Http *conn)
 
         s++;
 
-        size_t pos = s - conn->headers->p;
-        if (pos + 10 < conn->headers->len) {
-            int tmp = abuf_setup(conn->headers, conn->headers->len + HDR_CHUNK);
+        size_t pos = s - http->headers->p;
+        if (pos + 10 < http->headers->len) {
+            int tmp = abuf_setup (http->headers, http->headers->len + HDR_CHUNK);
             if (tmp < 0) {
                 loge ("Out of memory");
                 return 0;
             }
-            s = conn->headers->p + pos;
+            s = http->headers->p + pos;
         }
     }
 
-    logd ("--- Reply headers ---\n%s\n--- End of headers ---\n", conn->headers->p);
+    logd ("\n--- Reply headers ---\n%s\n--- End of headers ---\n", http->headers->p);
 
-    sscanf(conn->headers->p, "%*s %3i", &conn->status);
-    s2 = strchr (conn->headers->p, '\n');
+    sscanf(http->headers->p, "%*s %3i", &http->status);
+    s2 = strchr (http->headers->p, '\n');
     if (s2) {
         *s2 = 0;
     }
 
-    const size_t reslen = s2 - conn->headers->p + 1;
-    if (conn->request->len < reqlen) {
-        int ret = abuf_setup(conn->request, reslen);
+    const size_t reslen = s2 - http->headers->p + 1;
+    if (http->request->len < reqlen) {
+        int ret = abuf_setup(http->request, reslen);
         if (ret < 0)
             return 0;
     }
 
-    memcpy(conn->request->p, conn->headers->p, reslen);
-    *s2 = '\n';
+    memcpy(http->request->p, http->headers->p, reslen);
+    if (s2)     *s2 = '\n';
+
+    // get some information
 
     return 1;
 }
@@ -309,10 +306,10 @@ off_t http_size_from_range (Http *conn)
  * Content-Disposition: attachment
  * Content-Disposition: attachment; filename="filename.jpg"
  */
-void http_filename(const Http *conn, char *filename)
+void http_filename(const Http *http, char *filename)
 {
     const char *h;
-    if ((h = http_header(conn, "Content-Disposition:")) != NULL) {
+    if ((h = http_header(http, "Content-Disposition:")) != NULL) {
         sscanf(h, "%*s%*[  ]filename%*[  =\"\'-]%254[^\n\"\']", filename);
         /* Trim spaces at the end of string */
         const char space[] = "  ";
@@ -404,4 +401,76 @@ void http_encode (char *s, size_t len)
     t[j] = 0;
 
     gf_strlcpy(s, t, len);
+}
+
+
+
+bool http_init(DownloadData *d)
+{
+    g_return_val_if_fail (d, false);
+
+    // look for IPv6 literal hostname
+
+    // check file is exists
+
+    Http* http = g_malloc0 (sizeof (Http));
+    if (!http) {
+        loge ("g_malloc0 error: %s", strerror (errno));
+        return false;
+    }
+    d->data = http;
+
+    // connect
+    const char* schema = g_uri_get_scheme (d->uri);
+    const char* host = g_uri_get_host (d->uri);
+
+    bool isHttps = 0 & g_strcmp0 ("https", schema);
+
+    http_connect (http, isHttps ? PROTO_HTTPS : PROTO_HTTP, NULL, host, isHttps ? PROTO_HTTPS_PORT : PROTO_HTTP_PORT, NULL, NULL, -1);
+
+    // http header
+    int ret = abuf_setup (http->headers, 1024);
+    if (0 != ret) {
+        http_free (d);
+        loge ("abuf_setup error: %s", strerror (ret));
+        return false;
+    }
+
+    ret = abuf_setup (http->request, 1024);
+    if (0 != ret) {
+        http_free (d);
+        loge ("abuf_setup error: %s", strerror (ret));
+        return false;
+    }
+
+    // http get
+    const char* path = g_uri_get_path (d->uri);
+    if (!path) {
+        http_free (d);
+        return false;
+    }
+
+    http_get (http, path);
+//    http_filename (http, "aa.html");
+
+    return true;
+}
+
+bool http_download(DownloadData *d)
+{
+    g_return_val_if_fail (d && d->data, false);
+
+    if (!http_exec (d->data)) {
+        return false;
+    }
+
+    // save info
+
+    return true;
+}
+
+void http_free(DownloadData *d)
+{
+//    http_disconnect ();
+
 }

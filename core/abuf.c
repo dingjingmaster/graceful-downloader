@@ -39,13 +39,18 @@ int abuf_printf(Abuf *abuf, const char *fmt, ...)
 
         int r = abuf_setup(abuf, len + 1);
         if (r < 0) {
-            return r;
+            goto error;
         }
     }
 
     va_end(ap);
 
     return 0;
+
+error:
+    va_end (ap);
+
+    return -1;
 }
 
 /**

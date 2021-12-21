@@ -4,51 +4,53 @@
 #include "tcp.h"
 #include "abuf.h"
 #include "global.h"
+#include "protocol-interface.h"
 
 typedef struct _Http    Http;
 
+
+/* private */
 struct _Http
 {
     char            host[MAX_STRING];
     char            auth[MAX_STRING];
     Abuf            request[1], headers[1];
     int             port;
-    int             proto;		/* FTP through HTTP proxies */
+    int             proto;
     int             proxy;
     char            proxy_auth[MAX_STRING];
+
     off_t           firstbyte;
     off_t           lastbyte;
     int             status;
+
     Tcp             tcp;
-    char            *local_if;
+    char            *localIf;
 };
 
 
-/**
- * @brief 实现 http 初始化
- */
-//typedef bool (*Init)        (Downloader* data);
-//typedef bool (*Download)    (Downloader* data);
-//typedef void (*Free)        (Downloader* data);
+
+bool http_init          (DownloadData* d);
+bool http_download      (DownloadData* d);
+void http_free          (DownloadData* d);
+
+
+// some function private
+int  http_exec          (Http* http);
+void http_get           (Http* http, const char *lurl);
 
 
 
 
 
-
-
-
-
-int http_connect (Http* conn, int proto, char *proxy, char *host, int port, char *user, char *pass, unsigned io_timeout);
+int http_connect (Http* conn, int proto, const char *proxy, const char *host, int port, const char *user, const char *pass, unsigned ioTimeout);
 void http_disconnect (Http* conn);
-void http_get (Http* conn, char *lurl);
 
 #ifdef __GNUC__
 __attribute__((format(printf, 2, 3)))
 #endif /* __GNUC__ */
 
 void http_addheader (Http* conn, const char *format, ...);
-int http_exec(Http* conn);
 const char* http_header (const Http* conn, const char *header);
 void http_filename(const Http* conn, char *filename);
 off_t http_size(Http* conn);
