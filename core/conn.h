@@ -1,10 +1,7 @@
 #ifndef _CONN_H
 #define _CONN_H
 
-#include "tcp.h"
-#include "ftp.h"
-#include "conf.h"
-#include "http.h"
+#include "protocol-interface.h"
 
 
 #define PROTO_SECURE_MASK           (1<<0)	/* bit 0 - 0 = insecure, 1 = secure */
@@ -32,6 +29,7 @@
 
 #define PROTO_DEFAULT               PROTO_HTTP
 #define PROTO_DEFAULT_PORT          PROTO_HTTP_PORT
+
 
 struct _Conn
 {

@@ -10,7 +10,6 @@ extern "C" {
 #include "tcp.h"
 #include "ftp.h"
 #include "ssl.h"
-#include "http.h"
 #include "conn.h"
 #include "abuf.h"
 #include "conf.h"

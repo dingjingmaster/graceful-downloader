@@ -180,7 +180,11 @@ void* download_worker (Downloader* d)
     // test
     http_init (d->data);
 
-    http_download (d->data);
+    while (!d->data->ready) {
+        http_download (d->data);
+    }
 
     return NULL;
 }
+
+

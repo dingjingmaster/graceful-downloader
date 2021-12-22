@@ -112,3 +112,45 @@ int gf_get_process_num_by_name (const char *progressName)
 
     return num;
 }
+
+int stfile_unlink (const char *bname)
+{
+    char *stname = stfile_makename (bname);
+    int ret = unlink(stname);
+    free(stname);
+    return ret;
+}
+
+int stfile_access(const char *bname, int mode)
+{
+    char *stname = stfile_makename (bname);
+    int ret = access(stname, mode);
+    free(stname);
+    return ret;
+}
+
+
+int stfile_open(const char *bname, int flags, mode_t mode)
+{
+    char *stname = stfile_makename (bname);
+    int fd = open(stname, flags, mode);
+    free(stname);
+    return fd;
+}
+
+char* stfile_makename (const char *bname)
+{
+    const char suffix[] = ".st";
+    const size_t bnameLen = strlen(bname);
+    char *buf = malloc(bnameLen + sizeof(suffix));
+    if (!buf) {
+        perror("stfile_open");
+        abort();
+    }
+
+    memcpy(buf, bname, bnameLen);
+    memcpy(buf + bnameLen, suffix, sizeof(suffix));
+
+    return buf;
+}
+

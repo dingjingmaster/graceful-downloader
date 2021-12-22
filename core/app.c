@@ -16,13 +16,8 @@
 static void app_divide      (App* app);
 static void app_message     (App* app, const char *format, ...);
 
-static int stfile_unlink    (const char *bname);
-static int stfile_access    (const char *bname, int mode);
-static int stfile_open      (const char *bname, int flags, mode_t mode);
-
 static void save_state      (App* app);
 static void *setup_thread   (void *);
-static char*stfile_makename (const char* bname);
 static void reactivate_connection (App* app, int thread);
 
 static char *buffer = NULL;
@@ -703,30 +698,7 @@ static void app_divide (App* app)
 }
 
 
-static int stfile_unlink (const char *bname)
-{
-    char *stname = stfile_makename (bname);
-    int ret = unlink(stname);
-    free(stname);
-    return ret;
-}
 
-static int stfile_access(const char *bname, int mode)
-{
-    char *stname = stfile_makename (bname);
-    int ret = access(stname, mode);
-    free(stname);
-    return ret;
-}
-
-
-static int stfile_open(const char *bname, int flags, mode_t mode)
-{
-    char *stname = stfile_makename (bname);
-    int fd = open(stname, flags, mode);
-    free(stname);
-    return fd;
-}
 
 static void save_state(App* app)
 {
@@ -787,21 +759,6 @@ out:
     return NULL;
 }
 
-static char* stfile_makename (const char *bname)
-{
-    const char suffix[] = ".st";
-    const size_t bnameLen = strlen(bname);
-    char *buf = malloc(bnameLen + sizeof(suffix));
-    if (!buf) {
-        perror("stfile_open");
-        abort();
-    }
-
-    memcpy(buf, bname, bnameLen);
-    memcpy(buf + bnameLen, suffix, sizeof(suffix));
-
-    return buf;
-}
 
 static void reactivate_connection (App* app, int thread)
 {
