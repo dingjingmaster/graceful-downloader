@@ -40,6 +40,7 @@ int main (int argc, char* argv[])
     printf ("%s\n", buf);
     printf ("===================================\n");
 
+    tcp_destroy (&tcp);
 
     return 0;
 }

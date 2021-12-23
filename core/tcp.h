@@ -11,10 +11,6 @@
 typedef struct _Tcp             Tcp;
 
 struct _Tcp {
-    char               *host;
-    char               *proxyHost;              // not used
-    short               port;
-
     int                 sock;
 
     sa_family_t         aiFamily;
@@ -76,7 +72,7 @@ ssize_t tcp_write (Tcp* tcp, const void *buffer, int size);
 /**
  * @brief 销毁 Tcp 结构
  */
-void tcp_destroy        (Tcp* tcp);
+void tcp_destroy        (Tcp** tcp);
 
 
 #endif // TCP_H

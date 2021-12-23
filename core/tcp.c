@@ -62,13 +62,17 @@ error:
     return NULL;
 }
 
-void tcp_destroy(Tcp *tcp)
+void tcp_destroy(Tcp** tcp)
 {
-    g_return_if_fail (tcp);
+    g_return_if_fail (tcp && *tcp);
 
-    tcp_close (tcp);
+    tcp_close (*tcp);
 
-    free (tcp);
+    if ((*tcp)->error) g_error_free ((*tcp)->error);
+
+    free (*tcp);
+
+    *tcp = NULL;
 }
 
 void tcp_close(Tcp *tcp)
@@ -84,6 +88,10 @@ void tcp_close(Tcp *tcp)
             }
             SSL_free (tcp->ssl);
             tcp->ssl = NULL;
+        }
+
+        if (tcp->sslCtx) {
+            SSL_CTX_free (tcp->sslCtx);
         }
 
         if (tcp->sslCert) {
