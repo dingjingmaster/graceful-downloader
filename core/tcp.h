@@ -12,17 +12,16 @@ typedef struct _Tcp             Tcp;
 
 struct _Tcp {
     char               *host;
-    char               *proxyHost;
+    char               *proxyHost;              // not used
     short               port;
 
     int                 sock;
 
     sa_family_t         aiFamily;
     int                 nTimeoutInSecond;
-    GError             *error;                 /* a hint as to an error */
+    GError             *error;                 // a hint as to an error
 
-    /* SSL support. we always have a USE_SSL var, even if compiled
-     * without SSL; it's just always FALSE unless SSL is compiled in. */
+    /* SSL */
     bool                 useSSL;
     bool                 sslInitialized;
     SSL                 *ssl;
