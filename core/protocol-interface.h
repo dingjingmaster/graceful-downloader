@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <gio/gio.h>
 
+#include "global.h"
+
 
 typedef struct _Downloader          Downloader;
 typedef struct _DownloadData        DownloadData;
@@ -19,7 +21,6 @@ struct _DownloadData
     GUri*                   uri;
     char*                   outputDir;
     char*                   outputName;
-    char                    filename[MAX_STRING];
 
     /**
      * @TODO read and write lock for progress
@@ -27,7 +28,6 @@ struct _DownloadData
     void*                   data;
 
     //
-    Conn*                   conn;
     Conf*                   conf;
     double                  startTime;
     int                     nextState, finishTime;
@@ -40,7 +40,7 @@ struct _DownloadData
 
     char*                   buf;
 
-    Message                 *message, *lastMessage;
+//    Message                 *message, *lastMessage;
 };
 
 struct _DownloadMethod

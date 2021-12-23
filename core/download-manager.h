@@ -3,8 +3,6 @@
 #include <stdbool.h>
 #include <gio/gio.h>
 
-#include "protocol-interface.h"
-
 typedef struct _DownloadTask    DownloadTask;
 
 struct _DownloadTask

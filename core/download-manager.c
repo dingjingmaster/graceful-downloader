@@ -3,9 +3,9 @@
 #include <stdlib.h>
 
 #include "log.h"
+#include "dm-http.h"
 #include "thread-pool.h"
 
-#include "http.h"
 
 
 static GHashTable* gSchemaAndPortHash = NULL;
@@ -178,11 +178,11 @@ void* download_worker (Downloader* d)
 
     ////////////////////////////////////////////
     // test
-    http_init (d->data);
+//    http_init (d->data);
 
-    while (!d->data->ready) {
-        http_download (d->data);
-    }
+//    while (!d->data->ready) {
+//        http_download (d->data);
+//    }
 
     return NULL;
 }
