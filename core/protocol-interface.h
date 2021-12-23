@@ -28,7 +28,6 @@ struct _DownloadData
     void*                   data;
 
     //
-    Conf*                   conf;
     double                  startTime;
     int                     nextState, finishTime;
     off_t                   bytesDone, startByte, size;
