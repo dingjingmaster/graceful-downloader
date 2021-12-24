@@ -1,8 +1,6 @@
 #include "http-header.h"
 
-#include <stdlib.h>
 #include <gio/gio.h>
-
 
 /* entity headers */
 const char gHttpHeaderAllow[]               = "Allow";
@@ -123,8 +121,9 @@ const char* gHttpHeaderKnownList [] = {
     gHttpHeaderVary,
     gHttpHeaderWarning,
     gHttpHeaderWWWAuthenticate,
-    NULL
+    NULL,
 };
+
 
 HttpHeaderList *http_header_list_new ()
 {
@@ -176,9 +175,10 @@ bool http_header_list_set_value(HttpHeaderList *ls, const char *key, const char 
                     ls->header[i] = tmpVal;
                 } else {
                     ls->header[i] = g_strdup (key);
-                    ls->value[i] = g_strdup (value);
-                    return true;
                 }
+
+                ls->value[i] = g_strdup (value);
+                return true;
             }
         }
     } else {
