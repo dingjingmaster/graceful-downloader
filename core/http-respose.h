@@ -7,7 +7,7 @@
 #include "http-header.h"
 
 
-typedef struct _HttpRespose         HttpResopnse;
+typedef struct _HttpRespose         HttpResponse;
 
 
 struct _HttpRespose
@@ -21,8 +21,8 @@ struct _HttpRespose
 };
 
 
-HttpResopnse*   http_respose_new ();
-void            http_respose_destroy (HttpResopnse* resp);
+HttpResponse*   http_respose_new ();
+void            http_respose_destroy (HttpResponse* resp);
 
 
 #endif // HTTPRESPOSE_H
