@@ -29,7 +29,7 @@ const char* gHttpRequestTypeStr[] = {
 };
 
 
-HttpRequest *http_request_new(const char* host, const char* resource)
+HttpRequest *http_request_new (const char* host, const char* resource)
 {
     HttpRequest* req = g_malloc0 (sizeof (HttpRequest));
     if (!req) {

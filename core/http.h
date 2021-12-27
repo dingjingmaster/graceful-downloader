@@ -18,5 +18,8 @@ struct _Http
     HttpResponse           *resp;
 };
 
+Http*   http_new (GUri* uri);
+void    http_destroy (Http* http);
+
 
 #endif // HTTP_H
