@@ -13,7 +13,7 @@ int main (int argc, char* argv[])
     http_debug (http);
 
     if (!http_request (http, "index.html")) {
-        printf ("http_request failed!\n");
+        printf ("http_request failed! error: %s\n", http->error->message);
         goto error;
     }
 

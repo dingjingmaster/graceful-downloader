@@ -154,3 +154,18 @@ char* stfile_makename (const char *bname)
     return buf;
 }
 
+
+void gf_error(GError **error, const char *fmt,...)
+{
+    g_return_if_fail (error);
+
+    if (NULL != *error) {
+        g_error_free (*error);
+    }
+
+    va_list ap;
+
+    va_start(ap, fmt);
+    *error = g_error_new_valist (1, 1, fmt, ap);
+    va_end(ap);
+}

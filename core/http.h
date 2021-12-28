@@ -23,6 +23,8 @@ struct _Http
     int                     headerBufLen;
     int                     headerBufCurLen;
     char                   *headerBuf;
+
+    GError                 *error;
 };
 
 Http*   http_new        (GUri* uri);

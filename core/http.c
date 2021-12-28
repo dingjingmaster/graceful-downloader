@@ -4,7 +4,7 @@
 #include <errno.h>
 
 #include "log.h"
-
+#include "utils.h"
 
 void http_debug (const Http* http);
 
@@ -78,6 +78,7 @@ void http_destroy(Http *http)
     if (http->resp)                 http_respose_destroy (http->resp);
     if (http->request)              http_request_destroy (http->request);
     if (http->headerBuf)            g_free (http->headerBuf);
+    if (http->error)                g_error_free (http->error);
 //    if (http->bodyBuf)              g_free (http->bodyBuf);
 
     g_free (http);
@@ -90,14 +91,14 @@ bool http_request(Http *http, const char* fileName)
     // get request header
     g_autofree char* req =  http_request_get_string (http->request);
     if (!req) {
-        logd ("http request get header error");
+        gf_error (&http->error, "http request get header error");
         return false;
     }
 
     // connect
     bool useSSL = !g_ascii_strcasecmp (http->schema, "https") ? true : false;
     if (!tcp_connect (http->tcp, http->host, http->port, useSSL, NULL, -1)) {
-        logd ("tcp_connect error: %s", http->tcp->error->message);
+        gf_error (&http->error, http->tcp->error->message);
         return false;
     }
 
@@ -107,14 +108,14 @@ bool http_request(Http *http, const char* fileName)
 
     // send request
     if (tcp_write (http->tcp, req, strlen (req)) < 0) {
-        logd ("tcp write return false");
+        gf_error (&http->error, "tcp write return false");
         return false;
     }
 
     // read header
     int step = 1;
     if (!(http->headerBuf = g_malloc0 (http->headerBufLen))) {
-        logd ("http malloc header buf fail!");
+        gf_error (&http->error, "http malloc header buf fail!");
         return false;
     }
 
@@ -137,7 +138,7 @@ bool http_request(Http *http, const char* fileName)
             int len = http->headerBufLen + step * 512;
             char* t = g_realloc (http->headerBuf, len);
             if (!t) {
-                logd ("g_realloc header buf failed");
+                gf_error (&http->error, "g_realloc header buf failed");
                 return false;
             }
             ++step;
@@ -162,9 +163,10 @@ bool http_request(Http *http, const char* fileName)
     } else {
         const char* dir = g_get_user_special_dir (G_USER_DIRECTORY_DOWNLOAD);
         g_return_val_if_fail (dir, false);
-
         fileT = g_strdup_printf ("%s/%s", dir, fileName);
     }
+
+    printf ( "%s\n", fileT);
 
     g_autoptr (GError) error = NULL;
     g_autoptr (GFile) file = g_file_new_for_path (fileT);
@@ -172,6 +174,7 @@ bool http_request(Http *http, const char* fileName)
         if (g_file_query_exists (file, NULL)) {
             GFileType type = g_file_query_file_type (file, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, NULL);
             if (G_FILE_TYPE_DIRECTORY != type) {
+                gf_error (&http->error, "file '%s' already exists!", fileT, NULL);
                 return false;
             }
         }
@@ -180,7 +183,7 @@ bool http_request(Http *http, const char* fileName)
     // permission can open? and write?
     int fd = open (fileT, O_CREAT | O_RDWR, 0777);
     if (fd < 0) {
-        loge ("fail to open '%s', error: %s", fileT, strerror (errno));
+        gf_error (&http->error, "fail to open '%s', error: %s", fileT, strerror (errno), NULL);
         goto error;
     }
 
@@ -193,7 +196,7 @@ bool http_request(Http *http, const char* fileName)
         }
 
         if (write (fd, buf, ret) < 0) {
-            loge ("http download error: %s", strerror (errno));
+            gf_error (&http->error, "http download error: %s", strerror (errno), NULL);
             goto error;
         }
     }

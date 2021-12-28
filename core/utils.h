@@ -3,7 +3,11 @@
 
 #include <time.h>
 #include <fcntl.h>
+#include <stdarg.h>
+#include <gio/gio.h>
 
+
+void    gf_error (GError** error, const char* fmt, ...);
 
 double  gf_gettime  (void);
 int     gf_sleep    (struct timespec delay);
