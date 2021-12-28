@@ -1,9 +1,12 @@
 #include "http.h"
 
+#include <fcntl.h>
+#include <errno.h>
+
 #include "log.h"
 
 
-void http_debug (Http* http);
+void http_debug (const Http* http);
 
 Http *http_new(GUri* uri)
 {
@@ -16,7 +19,6 @@ Http *http_new(GUri* uri)
 
     // init size
     http->headerBufLen = 1024;
-    http->bodyBufLen = 10240;
 
     // port
     const char* schema = g_uri_get_scheme (uri);
@@ -76,14 +78,14 @@ void http_destroy(Http *http)
     if (http->resp)                 http_respose_destroy (http->resp);
     if (http->request)              http_request_destroy (http->request);
     if (http->headerBuf)            g_free (http->headerBuf);
-    if (http->bodyBuf)              g_free (http->bodyBuf);
+//    if (http->bodyBuf)              g_free (http->bodyBuf);
 
     g_free (http);
 }
 
-bool http_request(Http *http)
+bool http_request(Http *http, const char* fileName)
 {
-    g_return_val_if_fail (http, false);
+    g_return_val_if_fail (http && fileName, false);
 
     // get request header
     g_autofree char* req =  http_request_get_string (http->request);
@@ -148,14 +150,38 @@ bool http_request(Http *http)
 
     // parse header
 
-    // if read body???
+    // Multithreaded download
 
     // read body
     int ret = 0;
     char buf[1024] = {0};
-    if (!(http->bodyBuf = g_malloc0 (http->bodyBufLen))) {
-        logd ("http malloc body buf fail!");
-        return false;
+
+    g_autofree char* fileT = NULL;
+    if ('/' == fileName[0]) {
+        fileT = g_strdup (fileName);
+    } else {
+        const char* dir = g_get_user_special_dir (G_USER_DIRECTORY_DOWNLOAD);
+        g_return_val_if_fail (dir, false);
+
+        fileT = g_strdup_printf ("%s/%s", dir, fileName);
+    }
+
+    g_autoptr (GError) error = NULL;
+    g_autoptr (GFile) file = g_file_new_for_path (fileT);
+    if (G_IS_FILE (file)) {
+        if (g_file_query_exists (file, NULL)) {
+            GFileType type = g_file_query_file_type (file, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, NULL);
+            if (G_FILE_TYPE_DIRECTORY != type) {
+                return false;
+            }
+        }
+    }
+
+    // permission can open? and write?
+    int fd = open (fileT, O_CREAT | O_RDWR, 0777);
+    if (fd < 0) {
+        loge ("fail to open '%s', error: %s", fileT, strerror (errno));
+        goto error;
     }
 
     for (int i = 0;; ++i) {
@@ -166,26 +192,24 @@ bool http_request(Http *http)
             break;
         }
 
-        if (http->bodyBufCurLen + ret + 1 < http->bodyBufLen) {
-            int len = http->bodyBufLen + sizeof (buf);
-            char* t = g_realloc (http->bodyBuf, len);
-            if (!t) {
-                logd ("g_realloc body buf failed");
-                return false;
-            }
-            http->bodyBufLen = len;
-            http->bodyBuf = t;
+        if (write (fd, buf, ret) < 0) {
+            loge ("http download error: %s", strerror (errno));
+            goto error;
         }
-        memccpy (http->bodyBuf + http->bodyBufCurLen, buf, 0, ret);
-        http->bodyBufCurLen += ret;
     }
-    http->bodyBuf[http->bodyBufCurLen] = 0;
+
+    close (fd);
 
     return true;
+
+error:
+    if (fd > 0)     close (fd);
+
+    return false;
 }
 
 
-void http_debug (Http* http)
+void http_debug (const Http* http)
 {
     g_return_if_fail (http);
 
@@ -193,6 +217,5 @@ void http_debug (Http* http)
     printf ("host: %s\n", http->host);
     printf ("resource: %s\n", http->resource);
     if (http->headerBuf)    printf ("\nheader ==>\n%s\n===\n", http->headerBuf);
-    if (http->bodyBuf)      printf ("\nbody ==>\n%s\n===\n", http->bodyBuf);
     printf ("===========================================================\n");
 }

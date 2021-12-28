@@ -20,19 +20,14 @@ struct _Http
     HttpRequest            *request;
     HttpResponse           *resp;
 
-    int                     bodyBufLen;
     int                     headerBufLen;
-
     int                     headerBufCurLen;
-    int                     bodyBufCurLen;
-
-    char                   *bodyBuf;
     char                   *headerBuf;
 };
 
 Http*   http_new        (GUri* uri);
 void    http_destroy    (Http* http);
-bool    http_request    (Http* http);
+bool    http_request    (Http* http, const char* fileName);
 
 
 #endif // HTTP_H

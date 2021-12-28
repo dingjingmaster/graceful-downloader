@@ -2,7 +2,7 @@
 
 #include "http.h"
 
-extern void http_debug (Http* http);
+extern void http_debug (const Http* http);
 
 int main (int argc, char* argv[])
 {
@@ -12,7 +12,7 @@ int main (int argc, char* argv[])
 
     http_debug (http);
 
-    if (!http_request (http)) {
+    if (!http_request (http, "index.html")) {
         printf ("http_request failed!\n");
         goto error;
     }
