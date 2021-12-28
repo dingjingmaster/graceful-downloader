@@ -112,7 +112,7 @@ char *http_request_get_string (HttpRequest *req)
         kl = strlen (req->headers->value[i]);
         vl = strlen (req->headers->header[i]);
         if ((kl > 0) && (vl > 0)) {
-            remLen = reqLen - reqCurLen;
+            remLen = reqLen - reqCurLen - 10;
             lineLen = kl + vl + lineAddLen;
             if (lineLen > remLen) {
                 reqStr = g_realloc (reqStr, reqLen + lineLen - remLen + 1);
@@ -123,7 +123,9 @@ char *http_request_get_string (HttpRequest *req)
             reqCurLen += ret;
         }
     }
-    reqStr[reqCurLen] = '\0';
+    reqStr[reqCurLen] = '\r';
+    reqStr[++reqCurLen] = '\n';
+    reqStr[++reqCurLen] = '\0';
 
     return reqStr;
 

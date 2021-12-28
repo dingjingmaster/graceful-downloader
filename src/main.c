@@ -424,6 +424,8 @@ out:
 
 static void message_to_client (char* msg)
 {
+    g_return_if_fail (msg);
+
     int min = min (strlen (msg), COMMANDLINE_BUF - 1);
     memset (gMain->clientBuf, 0, COMMANDLINE_BUF);
     memset (gMain->serverBuf, 0, COMMANDLINE_BUF);
@@ -432,6 +434,8 @@ static void message_to_client (char* msg)
 
 static void message_to_client_append (char* msg)
 {
+    g_return_if_fail (msg);
+
     int curLen = strlen (gMain->serverBuf);
     int min = min (strlen (msg) + curLen + 1, COMMANDLINE_BUF - 1);
     min -= curLen;

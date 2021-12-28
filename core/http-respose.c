@@ -1,9 +1,9 @@
 #include "http-respose.h"
 
 
-HttpResopnse *http_respose_new()
+HttpResponse *http_respose_new()
 {
-    HttpResopnse* resp = g_malloc0 (sizeof (HttpResopnse));
+    HttpResponse* resp = g_malloc0 (sizeof (HttpResponse));
     if (!resp) {
         return NULL;
     }
@@ -11,7 +11,7 @@ HttpResopnse *http_respose_new()
     return resp;
 }
 
-void http_respose_destroy(HttpResopnse *resp)
+void http_respose_destroy(HttpResponse *resp)
 {
     g_return_if_fail (resp);
 
