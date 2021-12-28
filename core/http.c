@@ -149,6 +149,10 @@ bool http_request(Http *http, const char* fileName)
     http->headerBuf[http->headerBufCurLen] = 0;
     logd ("read header OK!");
 
+    logd ("\n================ respose ===================\n"
+         "%s"
+         "\n============================================\n", http->headerBuf);
+
     // parse header
 
     // Multithreaded download

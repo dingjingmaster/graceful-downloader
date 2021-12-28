@@ -19,27 +19,12 @@ typedef void (*Free)        (DownloadData* data);
 struct _DownloadData
 {
     GUri*                   uri;
-    char*                   outputDir;
     char*                   outputName;
 
     /**
      * @TODO read and write lock for progress
      */
     void*                   data;
-
-    //
-    double                  startTime;
-    int                     nextState, finishTime;
-    off_t                   bytesDone, startByte, size;
-    long long int           bytesPerSecond;
-    struct timespec         delayTime;
-
-    int                     outfd;
-    int                     ready;
-
-    char*                   buf;
-
-//    Message                 *message, *lastMessage;
 };
 
 struct _DownloadMethod
@@ -51,7 +36,7 @@ struct _DownloadMethod
 
 struct _Downloader
 {
-    DownloadMethod*         method;
+    const DownloadMethod*   method;
 
     DownloadData*           data;
 };

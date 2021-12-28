@@ -7,7 +7,6 @@
 #include "thread-pool.h"
 
 
-
 static GHashTable* gSchemaAndPortHash = NULL;
 static GHashTable* gSchemaAndDownloader = NULL;
 static GHashTable* gHostAndUserInfo = NULL;
@@ -33,12 +32,21 @@ bool protocol_register ()
     }
     g_return_val_if_fail (gSchemaAndDownloader, false);
 
+
     // schema and port
     g_hash_table_insert (gSchemaAndPortHash, "http", "80");
     g_hash_table_insert (gSchemaAndPortHash, "https", "443");
 //    g_hash_table_insert (gSchemaAndPortHash, "ftp", "21");
 
     // schema and downloader
+    DownloadMethod* m = g_malloc0 (sizeof (DownloadMethod));
+    g_return_val_if_fail (m, false);
+    m->init = dm_http_init;
+    m->download = dm_http_download;
+    m->free = dm_http_free;
+
+    g_hash_table_insert (gSchemaAndDownloader, "http", m);
+    g_hash_table_insert (gSchemaAndDownloader, "https", m);
 
 
     return true;
@@ -118,6 +126,8 @@ void download (const DownloadTask *data)
 
         if (NULL == l->data)    continue;
 
+        g_autofree char* turi = g_uri_to_string (l->data);
+        const char* schema = g_uri_get_scheme ((GUri*) l->data);
         const char* path = g_uri_get_path ((GUri*) (l->data));
         if (path) {
             // name
@@ -133,56 +143,73 @@ void download (const DownloadTask *data)
         }
 
         //
-        DownloadData* data1 = g_malloc0 (sizeof (DownloadData));
-        if (!data1) {
-            logd ("DownloadData g_malloc0 error");
-            continue;
-        }
-
         Downloader* dd = g_malloc0 (sizeof (Downloader));
         if (!dd) {
             logd ("Downloader g_malloc0 error");
-            if (data1) g_free (data1);
-            continue;
+            goto error;
         }
 
-        if (data->dir)      data1->outputDir = g_strdup (data->dir);
-        if (l->data)        data1->uri = g_uri_ref (l->data);
-        if (name)           data1->outputName = g_strdup (name);
-
-        // use default directory
-        if (!data1->outputDir) {
-            data1->outputDir = g_strdup (g_get_user_special_dir (G_USER_DIRECTORY_DOWNLOAD));
+        DownloadData* data1 = g_malloc0 (sizeof (DownloadData));
+        if (!data1) {
+            logd ("DownloadData g_malloc0 error");
+            goto error;
         }
-
-        // use default name
-        if (!data1->outputName) {
-            g_autofree char* turi = g_uri_to_string (l->data);
-            g_autofree char* ppath = g_base64_encode ((void*) turi, strlen(turi));
-            data1->outputName = g_strdup (ppath);
-        }
-
         dd->data = data1;
 
+        if (l->data)        data1->uri = g_uri_ref (l->data);
+
+        if (!name || g_str_has_suffix (turi, "/")) {
+            name = g_base64_encode ((void*) turi, strlen(turi));
+        }
+
+        if (data->dir) {
+            data1->outputName = g_strdup_printf ("%s/%s", data->dir, name);
+        } else {
+            const char* dir = g_get_user_special_dir (G_USER_DIRECTORY_DOWNLOAD);
+            data1->outputName = g_strdup_printf ("%s/%s", dir, name);
+        }
+
+        // download methos
+        if (!g_hash_table_contains (gSchemaAndDownloader, schema)) {
+            logd ("not found '%s' downloader", turi);
+            goto error;
+        }
+
+        dd->method = (DownloadMethod*) g_hash_table_lookup (gSchemaAndDownloader, schema);
+
         thread_pool_add_work ((void*) download_worker, dd);
+
+        continue;
+
+    error:
+        if (dd && dd->data)     g_free (dd->data);
+        if (dd)                 g_free (dd);
+
+        continue;
     }
 }
 
 void* download_worker (Downloader* d)
 {
-    g_return_val_if_fail (d && d->data /*&& d->method*/, NULL);
+    g_return_val_if_fail (d && d->data && d->method, NULL);
 
     g_autofree char* uri = g_uri_to_string (d->data->uri);
 
-    logd ("start download, uri: %s, save to: %s/%s", uri, d->data->outputDir, d->data->outputName);
+    logd ("start download, uri: %s, save to: %s", uri, d->data->outputName);
 
-    ////////////////////////////////////////////
-    // test
-//    http_init (d->data);
+    if (!d->method->init || !d->method->init (d->data)) {
+        loge ("uri: %s, downloader init error!", uri);
+        return NULL;
+    }
 
-//    while (!d->data->ready) {
-//        http_download (d->data);
-//    }
+    if (!d->method->download || !d->method->download (d->data)) {
+        loge ("uri: %s, downloader download error!", uri);
+        return NULL;
+    }
+
+    if (d->method->free) {
+        d->method->free(d->data);
+    }
 
     return NULL;
 }

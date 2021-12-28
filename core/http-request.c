@@ -53,6 +53,7 @@ HttpRequest *http_request_new (const char* host, const char* resource)
         goto error;
     }
 
+    http_header_list_set_value (req->headers, gHttpHeaderHost, req->host);
     http_header_list_set_value (req->headers, gHttpHeaderAccept, "*/*");
     http_header_list_set_value (req->headers, gHttpHeaderUserAgent, gVersionAgent);
     http_header_list_set_value (req->headers, gHttpHeaderAcceptEncoding, "identity");

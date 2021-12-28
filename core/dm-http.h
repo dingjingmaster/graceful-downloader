@@ -3,8 +3,10 @@
 
 #include "protocol-interface.h"
 
-bool http_init          (DownloadData* d);
-bool http_download      (DownloadData* d);
-void http_free          (DownloadData* d);
+#include "http.h"
+
+bool dm_http_init       (DownloadData* d);
+bool dm_http_download   (DownloadData* d);
+void dm_http_free       (DownloadData* d);
 
 #endif // HTTPDM_H
