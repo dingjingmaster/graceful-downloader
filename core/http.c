@@ -181,8 +181,6 @@ bool http_request(Http *http)
     }
     http->bodyBuf[http->bodyBufCurLen] = 0;
 
-    // parse
-
     return true;
 }
 
