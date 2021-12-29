@@ -32,6 +32,7 @@
 |src|下载器入口|
 |demo|小模块的例子|
 |doc|core目录下源码生成的说明文档(在编译目录下生成)|
+|命令`kill-gd.sh`|杀掉所有 graceful-downloader 进程的脚本，调试时候用过|
 
 ### `core` 目录下结构说明
 
